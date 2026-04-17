@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  ket-english:
+    build: .
+    container_name: ket-english-dev
+    ports:
+      - "3000:80"
+    volumes:
+      # 开发模式：直接挂载项目目录，改文件不需要重建镜像
+      - ./index.html:/usr/share/nginx/html/index.html
+      - ./vocab-review:/usr/share/nginx/html/vocab-review
+      - ./listening-player:/usr/share/nginx/html/listening-player
+      - ./shared:/usr/share/nginx/html/shared
+    restart: unless-stopped

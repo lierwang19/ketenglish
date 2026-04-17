@@ -1,0 +1,102 @@
+/* KET English — 设计令牌 (Design Tokens)
+ * 所有颜色、字体、间距、圆角、阴影的精确值
+ * 两个子系统共用此文件，禁止在其他文件中硬编码这些值
+ */
+
+:root {
+  /* 主色 */
+  --color-primary:       #4F7BF7;
+  --color-primary-dark:  #3A63E0;
+  --color-primary-light: #EEF2FF;
+
+  /* 掌握等级状态色 */
+  --color-red:           #F44336;
+  --color-red-light:     #FFEBEE;
+  --color-yellow:        #FFC107;
+  --color-yellow-light:  #FFF8E1;
+  --color-green:         #4CAF50;
+  --color-green-light:   #E8F5E9;
+
+  /* 语义色 */
+  --color-success:       #4CAF50;
+  --color-error:         #F44336;
+  --color-warning:       #FF9800;
+  --color-info:          #2196F3;
+
+  /* 文字色 */
+  --color-text-primary:  #1A1A2E;
+  --color-text-secondary:#64748B;
+  --color-text-disabled: #B0BEC5;
+  --color-text-inverse:  #FFFFFF;
+
+  /* 背景/表面 */
+  --color-bg:            #F8FAFF;
+  --color-surface:       #FFFFFF;
+  --color-border:        #E2E8F0;
+  --color-divider:       #F1F5F9;
+
+  /* 间距（8px 栅格） */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* 圆角 */
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   24px;
+  --radius-full: 9999px;
+
+  /* 字体 */
+  --font-family: 'PingFang SC', 'Helvetica Neue', 'Arial', sans-serif;
+  --font-size-xs:   12px;
+  --font-size-sm:   14px;
+  --font-size-base: 16px;
+  --font-size-lg:   18px;
+  --font-size-xl:   22px;
+  --font-size-2xl:  28px;
+  --font-size-hero: 52px;  /* 首页大数字 */
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold:   700;
+
+  --line-height-tight:  1.25;
+  --line-height-normal: 1.5;
+  --line-height-loose:  1.75;
+
+  /* 阴影 */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.10), 0 2px 4px rgba(0,0,0,0.05);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12), 0 4px 8px rgba(0,0,0,0.06);
+
+  /* 动效 */
+  --transition-fast:   150ms ease;
+  --transition-base:   250ms ease;
+  --transition-slow:   400ms ease;
+
+  /* 布局 */
+  --nav-height:         60px;   /* 底部导航高度 */
+  --player-height:      80px;   /* 系统B底部播放器高度 */
+  --header-height:      56px;   /* 顶部标题栏高度 */
+  --touch-target-min:   44px;   /* 最小触摸目标 */
+  --content-max-width:  640px;  /* 内容最大宽度（平板适配） */
+}
+
+/* 动效降级：用户偏好减少动效时全部关闭 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

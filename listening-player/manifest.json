@@ -1,0 +1,26 @@
+{
+  "name": "KET 听力精听",
+  "short_name": "KET听力",
+  "description": "KET 备考听力句段精听播放器，分句循环，错句回炉",
+  "start_url": "/listening-player/index.html",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F8FAFF",
+  "theme_color": "#4F7BF7",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education"]
+}

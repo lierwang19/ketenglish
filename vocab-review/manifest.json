@@ -1,0 +1,27 @@
+{
+  "name": "KET 单词复习",
+  "short_name": "KET单词",
+  "description": "KET 备考单词滚动复习系统，基于间隔重复原理",
+  "start_url": "/vocab-review/index.html",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F8FAFF",
+  "theme_color": "#4F7BF7",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education"],
+  "screenshots": []
+}

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#4F7BF7" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="KET听力" />
+  <meta name="description" content="KET 听力句段精听播放器 — 分句循环，错句回炉" />
+
+  <title>KET 听力精听</title>
+
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="assets/icons/icon-192.png" />
+
+  <link rel="stylesheet" href="../shared/design-tokens.css" />
+  <link rel="stylesheet" href="css/main.css" />
+</head>
+<body>
+
+  <!-- ==================== 顶部标题栏 ==================== -->
+  <header class="app-header" id="appHeader">
+    <a href="/" class="btn-icon header-home" aria-label="返回主页">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+    </a>
+    <button class="btn-icon header-back hidden" id="btnBack" aria-label="返回">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+    <h1 class="header-title" id="headerTitle">KET 听力精听</h1>
+    <div class="header-actions" id="headerActions"></div>
+  </header>
+
+  <!-- ==================== 页面容器 ==================== -->
+  <main class="page-container" id="pageContainer">
+
+    <!-- 首页：套题列表 -->
+    <section class="page" id="pageHome" data-page="home"></section>
+
+    <!-- 套题管理（新建/编辑） -->
+    <section class="page hidden" id="pageSetEdit" data-page="set-edit"></section>
+
+    <!-- 人工切分校正页 -->
+    <section class="page hidden" id="pageSegment" data-page="segment"></section>
+
+    <!-- 训练主页（精听/考试/复盘） -->
+    <section class="page hidden" id="pageTrain" data-page="train"></section>
+
+    <!-- 错句本 -->
+    <section class="page hidden" id="pageDifficult" data-page="difficult"></section>
+
+    <!-- 统计 -->
+    <section class="page hidden" id="pageStats" data-page="stats"></section>
+
+    <!-- 设置 -->
+    <section class="page hidden" id="pageSettings" data-page="settings"></section>
+
+  </main>
+
+  <!-- ==================== 底部导航 ==================== -->
+  <nav class="bottom-nav" id="bottomNav" aria-label="主导航">
+    <button class="nav-item active" data-route="/" aria-label="首页">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      <span class="nav-label">首页</span>
+    </button>
+    <button class="nav-item" data-route="/difficult" aria-label="错句本">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+      </svg>
+      <span class="nav-label">错句本</span>
+    </button>
+    <button class="nav-item" data-route="/stats" aria-label="统计">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10"/>
+        <line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+      <span class="nav-label">统计</span>
+    </button>
+    <button class="nav-item" data-route="/settings" aria-label="设置">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+      <span class="nav-label">设置</span>
+    </button>
+  </nav>
+
+  <!-- ==================== 底部播放器栏（训练页使用）==================== -->
+  <div class="player-bar hidden" id="playerBar">
+    <div class="player-bar-inner">
+      <!-- 当前句段信息 -->
+      <div class="player-info" id="playerInfo">
+        <div class="player-seg-text" id="playerSegText">—</div>
+        <div class="player-seg-meta" id="playerSegMeta"></div>
+      </div>
+      <!-- 主控制区 -->
+      <div class="player-controls">
+        <button class="player-btn" id="btnPrevSeg" title="上一句">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+        </button>
+        <button class="player-btn player-btn-main" id="btnPlayPause" title="播放/暂停">
+          <svg id="iconPlay"  width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          <svg id="iconPause" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" class="hidden"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        </button>
+        <button class="player-btn" id="btnNextSeg" title="下一句">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zm2-8.5 5.5 3.87L8 17.5v-8zm8-3.5h2v12h-2z"/></svg>
+        </button>
+      </div>
+      <!-- 速度 + 循环 -->
+      <div class="player-extras">
+        <button class="player-speed-btn" id="btnSpeed">1.0x</button>
+        <button class="player-loop-btn" id="btnLoop" title="循环">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+            <polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <!-- 进度条 -->
+    <div class="player-seek-wrap" id="playerSeekWrap">
+      <div class="player-seek-track" id="playerSeekTrack">
+        <div class="player-seek-fill" id="playerSeekFill"></div>
+        <div class="player-seek-thumb" id="playerSeekThumb"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 全局 Toast ==================== -->
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <!-- ==================== 全局加载遮罩 ==================== -->
+  <div class="loading-overlay hidden" id="loadingOverlay">
+    <div class="loading-spinner"></div>
+  </div>
+
+  <!-- ==================== SW 更新横幅 ==================== -->
+  <div class="sw-update-banner hidden" id="swUpdateBanner">
+    <span>发现新版本，刷新后生效</span>
+    <button class="btn-sm btn-primary" id="btnSwUpdate">立即刷新</button>
+    <button class="btn-icon" id="btnSwDismiss" aria-label="稍后">✕</button>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

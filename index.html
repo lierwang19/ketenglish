@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="KET 备考家庭学习工具 — 单词复习 + 精听训练" />
+  <title>KET English — 学习工具</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <style>
+    /* ===== Reset & Base ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:        #4F7BF7;
+      --blue-dark:   #3A63E0;
+      --blue-light:  #EEF2FF;
+      --orange:      #F97316;
+      --orange-dark: #EA580C;
+      --orange-light:#FFF7ED;
+      --text-1:      #1A1A2E;
+      --text-2:      #64748B;
+      --bg:          #F8FAFF;
+      --white:       #FFFFFF;
+      --border:      #E2E8F0;
+      --shadow-sm:   0 1px 4px rgba(0,0,0,0.08);
+      --shadow-md:   0 4px 16px rgba(0,0,0,0.10);
+      --shadow-lg:   0 8px 32px rgba(0,0,0,0.12);
+      --radius-md:   14px;
+      --radius-lg:   20px;
+      --radius-xl:   28px;
+    }
+
+    html { height: 100%; }
+
+    body {
+      min-height: 100%;
+      font-family: 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text-1);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ===== Layout ===== */
+    .page {
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 16px 48px;
+    }
+
+    .inner {
+      width: 100%;
+      max-width: 480px;
+    }
+
+    /* ===== Hero ===== */
+    .hero {
+      padding: 56px 0 32px;
+      text-align: center;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--blue-light);
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      padding: 5px 14px;
+      border-radius: 9999px;
+      margin-bottom: 20px;
+    }
+
+    .hero-badge svg { flex-shrink: 0; }
+
+    .hero-title {
+      font-size: clamp(28px, 7vw, 40px);
+      font-weight: 800;
+      line-height: 1.2;
+      color: var(--text-1);
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+
+    .hero-title span {
+      background: linear-gradient(135deg, var(--blue) 0%, #7C3AED 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      font-size: 15px;
+      color: var(--text-2);
+      line-height: 1.6;
+    }
+
+    /* ===== Section label ===== */
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: var(--text-2);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      margin-top: 32px;
+    }
+
+    /* ===== App Cards ===== */
+    .app-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .app-card {
+      display: block;
+      text-decoration: none;
+      background: var(--white);
+      border-radius: var(--radius-xl);
+      padding: 24px;
+      box-shadow: var(--shadow-md);
+      border: 1.5px solid var(--border);
+      transition: transform 180ms ease, box-shadow 180ms ease;
+      -webkit-tap-highlight-color: transparent;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .app-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 180ms ease;
+      border-radius: inherit;
+    }
+
+    .app-card:active {
+      transform: scale(0.98);
+    }
+
+    .app-card:active::before { opacity: 1; }
+
+    .app-card.card-blue {
+      border-color: rgba(79,123,247,0.2);
+    }
+    .app-card.card-blue::before {
+      background: rgba(79,123,247,0.04);
+    }
+    .app-card.card-blue .card-arrow { background: var(--blue-light); color: var(--blue); }
+
+    .app-card.card-orange {
+      border-color: rgba(249,115,22,0.2);
+    }
+    .app-card.card-orange::before {
+      background: rgba(249,115,22,0.04);
+    }
+    .app-card.card-orange .card-arrow { background: var(--orange-light); color: var(--orange); }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .card-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .icon-blue  { background: var(--blue-light);   color: var(--blue); }
+    .icon-orange{ background: var(--orange-light);  color: var(--orange); }
+
+    .card-arrow {
+      width: 32px;
+      height: 32px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .card-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-1);
+      margin-bottom: 6px;
+      line-height: 1.3;
+    }
+
+    .card-desc {
+      font-size: 13px;
+      color: var(--text-2);
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .tag {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      letter-spacing: 0.02em;
+    }
+
+    .tag-blue   { background: var(--blue-light);   color: var(--blue); }
+    .tag-orange { background: var(--orange-light);  color: var(--orange-dark); }
+    .tag-gray   { background: #F1F5F9; color: var(--text-2); }
+
+    /* ===== Divider ===== */
+    .divider {
+      width: 100%;
+      height: 1px;
+      background: var(--border);
+      margin: 32px 0;
+    }
+
+    /* ===== Info section ===== */
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .info-item {
+      background: var(--white);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+    }
+
+    .info-num {
+      font-size: 24px;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .info-num.blue   { color: var(--blue); }
+    .info-num.orange { color: var(--orange); }
+
+    .info-label {
+      font-size: 12px;
+      color: var(--text-2);
+    }
+
+    /* ===== Footer ===== */
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    .footer p {
+      font-size: 12px;
+      color: var(--text-2);
+      line-height: 1.8;
+    }
+
+    .footer strong {
+      color: var(--text-1);
+      font-weight: 600;
+    }
+
+    /* ===== Animation ===== */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 页面整体淡入 — 无延迟无交错，避免截图/慢速设备空白闪烁 */
+    .inner { animation: fadeUp 0.4s ease; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .inner { animation: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <main class="page">
+    <div class="inner">
+
+      <!-- Hero -->
+      <header class="hero">
+        <div class="hero-badge">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+          </svg>
+          KET 备考家庭专属
+        </div>
+        <h1 class="hero-title">
+          <span>KET English</span><br />学习工具
+        </h1>
+        <p class="hero-sub">单词间隔复习 · 听力句段精练<br />本地存储，进度不丢失</p>
+      </header>
+
+      <!-- 应用列表 -->
+      <p class="section-label">选择工具</p>
+      <div class="app-cards">
+
+        <!-- 单词复习 -->
+        <a href="/vocab-review/index.html" class="app-card card-blue">
+          <div class="card-header">
+            <div class="card-icon icon-blue">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                <line x1="8" y1="7" x2="16" y2="7"/>
+                <line x1="8" y1="11" x2="13" y2="11"/>
+              </svg>
+            </div>
+            <div class="card-arrow">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </div>
+          </div>
+          <h2 class="card-title">单词滚动复习</h2>
+          <p class="card-desc">
+            科学间隔重复，把学过的词纳入每日复习。红 / 黄 / 绿三级掌握分级，错词自动回炉，每天10分钟搞定旧词。
+          </p>
+          <div class="card-tags">
+            <span class="tag tag-blue">间隔重复</span>
+            <span class="tag tag-blue">选择题</span>
+            <span class="tag tag-blue">拼写练习</span>
+            <span class="tag tag-gray">离线可用</span>
+          </div>
+        </a>
+
+        <!-- 听力精听 -->
+        <a href="/listening-player/index.html" class="app-card card-orange">
+          <div class="card-header">
+            <div class="card-icon icon-orange">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
+                <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
+              </svg>
+            </div>
+            <div class="card-arrow">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </div>
+          </div>
+          <h2 class="card-title">听力句段精听</h2>
+          <p class="card-desc">
+            导入音频和原文，自动切分句段。单句循环、0.75x 慢速、错句本回炉。精听模式 / 考试模式 / 复盘模式一键切换。
+          </p>
+          <div class="card-tags">
+            <span class="tag tag-orange">句段循环</span>
+            <span class="tag tag-orange">变速播放</span>
+            <span class="tag tag-orange">错句本</span>
+            <span class="tag tag-gray">离线可用</span>
+          </div>
+        </a>
+
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- 数据亮点 -->
+      <p class="section-label">功能一览</p>
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-num blue">6</div>
+          <div class="info-label">间隔复习天数档位</div>
+        </div>
+        <div class="info-item">
+          <div class="info-num blue">3</div>
+          <div class="info-label">单词掌握等级</div>
+        </div>
+        <div class="info-item">
+          <div class="info-num orange">3</div>
+          <div class="info-label">听力训练模式</div>
+        </div>
+        <div class="info-item">
+          <div class="info-num orange">3×</div>
+          <div class="info-label">变速播放档位</div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <footer class="footer">
+        <p>
+          <strong>数据本地存储，无需注册账号</strong><br />
+          所有学习记录保存在你的设备上<br />
+          支持 iOS Safari / Android Chrome / 桌面浏览器
+        </p>
+      </footer>
+
+    </div>
+  </main>
+
+</body>
+</html>
