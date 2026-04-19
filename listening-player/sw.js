@@ -8,7 +8,7 @@
 
 'use strict';
 
-const CACHE_NAME = 'ket-listen-v1';
+const CACHE_NAME = 'ket-listen-v2';
 
 const PRECACHE_URLS = [
   '/listening-player/index.html',
@@ -21,6 +21,7 @@ const PRECACHE_URLS = [
   '/shared/design-tokens.css',
   '/shared/db.js',
   '/shared/router.js',
+  '/shared/theme.js',
 ];
 
 self.addEventListener('install', (event) => {

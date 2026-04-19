@@ -1,17 +1,13 @@
-FROM nginx:alpine
+FROM nginx:1.27-alpine
 
-# Copy nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy project files
-COPY . /usr/share/nginx/html/
-
-# Remove files that don't belong in web root
-RUN rm -f /usr/share/nginx/html/Dockerfile \
-    /usr/share/nginx/html/docker-compose.yml \
-    /usr/share/nginx/html/nginx.conf \
-    /usr/share/nginx/html/plan.md \
-    /usr/share/nginx/html/agent.md \
-    /usr/share/nginx/html/claude.md
+COPY index.html /usr/share/nginx/html/index.html
+COPY vocab-review /usr/share/nginx/html/vocab-review
+COPY listening-player /usr/share/nginx/html/listening-player
+COPY shared /usr/share/nginx/html/shared
 
 EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD wget -q -O /dev/null http://127.0.0.1/ || exit 1

@@ -15,6 +15,7 @@
 
 import { createRouter }              from '../../shared/router.js';
 import { checkIndexedDBAvailable }  from '../../shared/db.js';
+import { initTheme, loadThemePreference, saveThemePreference } from '../../shared/theme.js';
 import {
   initDB, getAllSets, getSet, createSet, updateSet, deleteSet,
   saveAudio, getAudiosBySet, getAudio,
@@ -35,6 +36,8 @@ let _editAudioId  = null;  // 正在操作的音频 id
 // ==================== 启动 ====================
 
 async function main() {
+  initTheme();
+
   const idbOk = await checkIndexedDBAvailable();
   if (!idbOk) {
     showFatalError('当前浏览器/模式不支持本地存储\n请退出隐私模式后重试');
@@ -888,6 +891,19 @@ async function renderSettings(container) {
       </div>
     </div>
 
+    <div class="card" style="margin-bottom:var(--space-4)">
+      <div class="section-title" style="padding-top:0">界面主题</div>
+
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">显示模式</label>
+        <select class="form-select" id="themeMode">
+          <option value="system" ${loadThemePreference() === 'system' ? 'selected' : ''}>跟随系统</option>
+          <option value="light" ${loadThemePreference() === 'light' ? 'selected' : ''}>浅色</option>
+          <option value="dark" ${loadThemePreference() === 'dark' ? 'selected' : ''}>深色</option>
+        </select>
+      </div>
+    </div>
+
     <button class="btn btn-primary btn-full" id="btnSaveSettings">保存设置</button>
 
     <div style="margin-top:var(--space-8);padding-bottom:var(--space-8)">
@@ -904,7 +920,9 @@ async function renderSettings(container) {
     const speed     = parseFloat(container.querySelector('#defaultSpeed')?.value) || 1.0;
     const loopCount = parseInt(container.querySelector('#defaultLoopCount')?.value, 10) || 0;
     const autoMark  = container.querySelector('#autoMarkDifficult')?.checked ?? false;
+    const themeMode = container.querySelector('#themeMode')?.value || 'system';
     saveSettings({ defaultSpeed: speed, defaultLoopCount: loopCount, autoMarkDifficult: autoMark });
+    saveThemePreference(themeMode);
     showToast('设置已保存');
   });
 }
@@ -976,7 +994,7 @@ function showFatalError(msg) {
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100dvh;padding:32px;text-align:center;gap:16px">
       <div style="font-size:48px">⚠️</div>
       <div style="font-size:20px;font-weight:700">无法启动</div>
-      <div style="font-size:14px;color:#64748B;white-space:pre-line">${esc(msg)}</div>
+      <div style="font-size:14px;color:var(--color-text-secondary);white-space:pre-line">${esc(msg)}</div>
     </div>
   `;
 }

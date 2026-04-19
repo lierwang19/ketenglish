@@ -1,285 +1,223 @@
 /**
- * vocab-review/js/scheduler.js — 每日任务调度算法
+ * vocab-review/js/scheduler.js
  *
- * 优先级顺序（由高到低）：
- *   P1. 到期红词（mastery=red, due today）
- *   P2. 到期黄词（mastery=yellow, due today）
- *   P3. 到期会写词（word_type=spelling, due today）
- *   P4. 错词回炉（is_error_word=true, not yet due）
- *   P5. 绿色词抽查（mastery=green, due today or overdue）
- *
- * 每日任务量上限：由设置控制（默认 30 题），防止随周数增加无限膨胀
- *
- * CRITICAL FIX 列表（对应 plan.md 工程审查结论）：
- *   [CF-1] 幂等性 — 同一天多次调用 buildDailyTask，结果一致（用 daily_tasks 快照）
- *   [CF-2] consecutive_correct 归零 — 答错时在 db.js updateProgress 处理，此处不重复
- *   [CF-3] 日期算术 — 使用 calcNextReviewDate（本地日历天），不用毫秒
- *   [CF-4] 原子事务 — 批量写入在 db.js 单一事务内完成
+ * 新版每日任务单调度：
+ * - 固定预算：基础词汇 / 拓展词汇分别控制数量
+ * - 候选池评分：到期、逾期、错误强度、掌握层级、词汇类型共同决定优先级
+ * - 小范围加权抽样：避免纯排序导致后排单词长期见不到
  */
 
 'use strict';
 
 import {
-  getDueWords,
-  getErrorWords,
+  getAllWords,
   getDailyTask,
   saveDailyTask,
   getTodayStr,
-  resetSessionId,
+  calcNextReviewDate,
 } from './db.js';
+import { DEFAULT_SETTINGS } from './settings.js';
 
-// ==================== 配置 ====================
-
-export const DEFAULT_SETTINGS = {
-  maxDailyQuestions:   30,   // 每日最多题数
-  maxErrorRehearsal:    5,   // 错词回炉最多题数
-  maxGreenSpotCheck:    3,   // 绿词抽查最多题数
-  enableSpotCheck:   true,   // 是否开启绿词抽查
-};
-
-// ==================== 构建每日任务 ====================
-
-/**
- * 构建今日任务列表（幂等 — 同一天调用结果相同）
- *
- * @param {object} settings  — 覆盖 DEFAULT_SETTINGS 的设置项
- * @returns {Promise<DailyTask>}
- *
- * @typedef {object} DailyTask
- * @property {string}   date          - YYYY-MM-DD
- * @property {WordItem[]} queue        - 有序题目队列（含回炉词）
- * @property {number}   total          - 队列总题数
- * @property {object}   breakdown      - { red, yellow, spelling, error, green }
- */
-export async function buildDailyTask(settings = {}) {
-  const cfg   = { ...DEFAULT_SETTINGS, ...settings };
+export async function buildDailyTask(settings = {}, force = false) {
+  const cfg = { ...DEFAULT_SETTINGS, ...settings };
   const today = getTodayStr();
 
-  // [CF-1] 幂等性：同一天已有快照则直接返回
-  const existing = await getDailyTask(today);
-  if (existing?.queue?.length > 0) {
-    return existing;
+  if (!force) {
+    const existing = await getDailyTask(today);
+    if (existing?.sections) return existing;
   }
 
-  // 重置 session ID，每次新任务用新 session
-  resetSessionId();
+  const words = await getAllWords();
+  const candidates = words
+    .filter(word => word.progress)
+    .map(word => ({ ...word, score: scoreWord(word, today, cfg) }))
+    .filter(word => word.score > 0);
 
-  // 拉取数据
-  const [dueWords, errorWords] = await Promise.all([
-    getDueWords(today),
-    getErrorWords(),
-  ]);
+  const basicCandidates = candidates.filter(word => word.word_type === 'spelling');
+  const extendedCandidates = candidates.filter(word => word.word_type !== 'spelling');
 
-  // 按优先级分桶
-  const redWords     = dueWords.filter(w => w.progress.mastery_level === 'red');
-  const yellowWords  = dueWords.filter(w => w.progress.mastery_level === 'yellow');
-  const spellingWords = dueWords.filter(w =>
-    w.word_type === 'spelling' && w.progress.mastery_level !== 'red'
-  );
-  const greenWords   = dueWords.filter(w => w.progress.mastery_level === 'green');
-
-  // 到期的错词（not in dueWords，是额外回炉）
-  const dueWordIds   = new Set(dueWords.map(w => w.id));
-  const rehearsalWords = errorWords
-    .filter(w => !dueWordIds.has(w.id))
-    .slice(0, cfg.maxErrorRehearsal);
-
-  const greenSpotCheck = cfg.enableSpotCheck
-    ? greenWords.slice(0, cfg.maxGreenSpotCheck)
-    : [];
-
-  // 组装有序队列（按优先级排序）
-  let queue = [
-    ...redWords,
-    ...yellowWords,
-    ...spellingWords,
-    ...rehearsalWords,
-    ...greenSpotCheck,
-  ];
-
-  // 截断到上限
-  queue = queue.slice(0, cfg.maxDailyQuestions);
-
-  // 题型标注（供 practice.js 生成题目）
-  queue = queue.map(w => ({
-    ...w,
-    questionType: resolveQuestionType(w),
-  }));
-
-  const breakdown = {
-    red:      redWords.length,
-    yellow:   yellowWords.length,
-    spelling: spellingWords.length,
-    error:    rehearsalWords.length,
-    green:    greenSpotCheck.length,
-  };
+  const selectedBasic = pickWords(basicCandidates, cfg.basicDailyCount);
+  const selectedExtended = pickWords(extendedCandidates, cfg.extendedDailyCount);
 
   const task = {
-    date:         today,
-    queue,
-    total:        queue.length,
-    breakdown,
-    completed:    0,
-    correct:      0,
-    wrong:        0,
+    date: today,
+    status: 'generated',
     generated_at: new Date().toISOString(),
+    summary: {
+      basicCount: selectedBasic.length,
+      extendedCount: selectedExtended.length,
+      totalWords: selectedBasic.length + selectedExtended.length,
+      reminderTime: cfg.reminderTime,
+    },
+    sections: {
+      basic: buildBasicSection(selectedBasic),
+      extended: buildExtendedSection(selectedExtended),
+    },
+    meta: {
+      scoringModel: 'budgeted-priority-pool',
+      selectedBasicIds: selectedBasic.map(item => item.id),
+      selectedExtendedIds: selectedExtended.map(item => item.id),
+      breakdown: buildBreakdown(selectedBasic, selectedExtended, today),
+    },
   };
 
-  // 保存快照（[CF-1] 幂等保障）
   await saveDailyTask(today, task);
-
   return task;
 }
 
-// ==================== 题型决策 ====================
+export function scoreWord(word, today, settings = DEFAULT_SETTINGS) {
+  const progress = word.progress || {};
+  const type = word.word_type === 'spelling' ? 'basic' : 'extended';
+  const nextReview = progress.next_review_at || today;
+  const overdueDays = diffDays(nextReview, today);
+  const due = overdueDays >= 0;
 
-/**
- * 根据单词类型和掌握等级决定题型
- *
- * 认读词 (recognition):
- *   - 看英文选中文
- *   - 看中文选英文（交替出现）
- *
- * 会写词 (spelling):
- *   - 看中文拼英文（绿色前）
- *   - 补全单词（缺字母）（黄/绿阶段增加）
- *
- * @returns {'pick_cn'|'pick_en'|'spell'|'fill'}
- */
-export function resolveQuestionType(word) {
-  const { word_type, progress } = word;
-  const mastery = progress?.mastery_level || 'red';
+  let score = 0;
 
-  if (word_type === 'spelling') {
-    // 会写词：红/黄 用拼写，绿色用补全（巩固）
-    if (mastery === 'green') return 'fill';
-    return 'spell';
+  if (due) {
+    score += 50;
+    score += Math.min(overdueDays * 4, 28);
   }
 
-  // 认读词：交替看英选中 / 看中选英
-  // 用 word.id 的奇偶性决定题型，确保同一词每次呈现类型稳定
-  return (word.id % 2 === 0) ? 'pick_cn' : 'pick_en';
+  score += type === 'basic' ? 18 : 8;
+  score += masteryWeight(progress.mastery_level);
+  score += Math.min((progress.total_wrong || 0) * 4, 24);
+
+  if (progress.is_error_word) score += 22;
+  if ((progress.error_count_today || 0) > 0) score += 8;
+
+  const consecutiveCorrect = progress.consecutive_correct || 0;
+  score -= Math.min(consecutiveCorrect * 3, 15);
+
+  const lastReviewed = progress.last_reviewed_at;
+  if (lastReviewed) {
+    const daysSinceReview = diffDays(lastReviewed, today);
+    if (daysSinceReview <= 1) score -= 14;
+    else if (daysSinceReview <= 3) score -= 6;
+  }
+
+  if (!due) {
+    const futureGap = Math.abs(overdueDays);
+    score -= Math.min(futureGap * 6, 30);
+  }
+
+  if (progress.mastery_level === 'green' && !settings.enableLowFrequencyCheck) {
+    score -= 20;
+  }
+
+  return Math.max(score, 0);
 }
 
-// ==================== 回炉插入 ====================
+function buildBasicSection(words) {
+  const midpoint = Math.ceil(words.length / 2);
+  const left = words.slice(0, midpoint).map((word, index) => ({
+    seq: index + 1,
+    prompt: word.chinese,
+    answer: word.english,
+    direction: 'cn_to_en',
+    wordId: word.id,
+  }));
+  const right = words.slice(midpoint).map((word, index) => ({
+    seq: midpoint + index + 1,
+    prompt: word.english,
+    answer: word.chinese,
+    direction: 'en_to_cn',
+    wordId: word.id,
+  }));
 
-/**
- * 当日答错的词，在任务后半段插入回炉题
- * practice.js 在答错时调用此函数，将词追加到队列末尾（最多回炉 2 次）
- *
- * @param {WordItem[]} queue   - 当前题目队列（可变）
- * @param {WordItem}   word    - 答错的词
- * @param {number}     currentIndex - 当前做到第几题
- */
-export function insertRehearsal(queue, word, currentIndex) {
-  // 统计该词在当前队列剩余部分的出现次数
-  const remaining = queue.slice(currentIndex + 1);
-  const alreadyQueued = remaining.filter(w => w.id === word.id).length;
+  return { total: words.length, left, right };
+}
 
-  if (alreadyQueued >= 2) return; // 最多回炉 2 次，防止无限循环
+function buildExtendedSection(words) {
+  const midpoint = Math.ceil(words.length / 2);
+  const left = words.slice(0, midpoint).map((word, index) => ({
+    seq: index + 1,
+    english: word.english,
+    chinese: word.chinese,
+    mark: '',
+    wordId: word.id,
+  }));
+  const right = words.slice(midpoint).map((word, index) => ({
+    seq: midpoint + index + 1,
+    english: word.english,
+    chinese: word.chinese,
+    mark: '',
+    wordId: word.id,
+  }));
 
-  // 插入位置：剩余队列的中后段（约 2/3 处），不要立即出现
-  const insertAt = Math.min(
-    currentIndex + 1 + Math.max(3, Math.floor(remaining.length * 0.5)),
-    queue.length
-  );
+  return { total: words.length, left, right };
+}
 
-  queue.splice(insertAt, 0, {
-    ...word,
-    questionType: resolveQuestionType(word),
-    isRehearsal:  true,
+function buildBreakdown(basicWords, extendedWords, today) {
+  const all = [...basicWords, ...extendedWords];
+  return {
+    overdue: all.filter(word => diffDays(word.progress?.next_review_at || today, today) > 0).length,
+    dueToday: all.filter(word => diffDays(word.progress?.next_review_at || today, today) === 0).length,
+    errorWords: all.filter(word => word.progress?.is_error_word).length,
+    greenSpotChecks: all.filter(word => word.progress?.mastery_level === 'green').length,
+  };
+}
+
+function pickWords(candidates, limit) {
+  if (limit <= 0 || !candidates.length) return [];
+
+  const sorted = [...candidates].sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return String(a.english).localeCompare(String(b.english));
   });
+
+  const guaranteed = sorted.slice(0, Math.min(limit, Math.ceil(limit * 0.6)));
+  const remainingSlots = limit - guaranteed.length;
+
+  if (remainingSlots <= 0) return guaranteed;
+
+  const pool = sorted.slice(guaranteed.length, Math.min(sorted.length, guaranteed.length + remainingSlots * 3));
+  const randomPicks = weightedPick(pool, remainingSlots);
+  return [...guaranteed, ...randomPicks];
 }
 
-// ==================== 连续答对追踪 ====================
+function weightedPick(pool, count) {
+  const source = [...pool];
+  const result = [];
 
-/**
- * 检查是否应该显示"任务完成"庆祝动画
- * @param {DailyTask} task
- * @returns {boolean}
- */
-export function isTaskComplete(task) {
-  return task.completed >= task.total && task.total > 0;
-}
+  while (source.length && result.length < count) {
+    const total = source.reduce((sum, item) => sum + Math.max(item.score, 1), 0);
+    let cursor = Math.random() * total;
 
-/**
- * 获取当日正确率
- */
-export function getAccuracyRate(task) {
-  if (!task.completed) return 0;
-  return Math.round((task.correct / task.completed) * 100);
-}
-
-// ==================== 抽查干扰项生成 ====================
-
-/**
- * 为选择题生成 3 个干扰项
- * 从 allWords 中随机取，不与正确答案重复
- *
- * @param {WordItem} correct    - 正确词
- * @param {WordItem[]} pool     - 全量词库（用于取干扰项）
- * @param {'pick_cn'|'pick_en'} type
- * @returns {string[]}          - 4 个选项（含正确答案，已打乱）
- */
-export function generateOptions(correct, pool, type) {
-  const correctAnswer = type === 'pick_cn' ? correct.chinese : correct.english;
-
-  // 从 pool 中过滤掉自己，取干扰项
-  const distractors = pool
-    .filter(w => w.id !== correct.id)
-    .map(w => type === 'pick_cn' ? w.chinese : w.english)
-    .filter(ans => ans !== correctAnswer); // 防止语义相同
-
-  // 随机取 3 个
-  const shuffled = fisherYatesShuffle([...new Set(distractors)]);
-  const selected = shuffled.slice(0, 3);
-
-  // 如果词库太小，用 fallback 补齐
-  while (selected.length < 3) {
-    selected.push(type === 'pick_cn' ? '（无）' : 'n/a');
+    for (let i = 0; i < source.length; i++) {
+      cursor -= Math.max(source[i].score, 1);
+      if (cursor <= 0) {
+        result.push(source[i]);
+        source.splice(i, 1);
+        break;
+      }
+    }
   }
 
-  // 混入正确答案并打乱
-  const options = fisherYatesShuffle([correctAnswer, ...selected]);
-  return options;
+  return result;
 }
 
-/**
- * 生成补全单词题的带空格版本
- * 随机隐藏 2~3 个字母（用下划线替代）
- *
- * @param {string} english  - 完整英文单词
- * @returns {{ masked: string, answer: string, positions: number[] }}
- */
-export function generateFillQuestion(english) {
-  const word = english.toLowerCase();
-  const len  = word.length;
-
-  // 至少保留一半字母可见
-  const hideCount = Math.min(3, Math.max(1, Math.floor(len * 0.4)));
-  const positions = new Set();
-
-  // 不隐藏首字母
-  while (positions.size < hideCount) {
-    const pos = 1 + Math.floor(Math.random() * (len - 1));
-    positions.add(pos);
+function masteryWeight(level) {
+  switch (level) {
+    case 'red': return 18;
+    case 'yellow': return 10;
+    case 'green': return 2;
+    default: return 6;
   }
-
-  const masked = word
-    .split('')
-    .map((ch, i) => positions.has(i) ? '_' : ch)
-    .join('');
-
-  return { masked, answer: word, positions: [...positions].sort() };
 }
 
-// ==================== 工具 ====================
+function diffDays(fromDate, toDate) {
+  if (!fromDate || !toDate) return 0;
+  const from = new Date(`${fromDate}T00:00:00`);
+  const to = new Date(`${toDate}T00:00:00`);
+  return Math.round((to.getTime() - from.getTime()) / 86400000);
+}
 
-function fisherYatesShuffle(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
+export function describeNextReview(word, settings = DEFAULT_SETTINGS) {
+  const type = word.word_type === 'spelling' ? 'basic' : 'extended';
+  const intervals = type === 'basic' ? settings.basicIntervals : settings.extendedIntervals;
+  const progress = word.progress || {};
+  const idx = Math.min(progress.interval_index || 0, intervals.length - 1);
+  const nextGap = intervals[idx] ?? intervals[intervals.length - 1];
+  return calcNextReviewDate(getTodayStr(), nextGap);
 }

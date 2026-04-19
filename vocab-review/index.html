@@ -46,7 +46,7 @@
       <!-- 由 app.js 动态渲染 -->
     </section>
 
-    <!-- 今日任务 / 练习页 -->
+    <!-- 今日任务单 -->
     <section class="page hidden" id="pagePractice" data-page="practice">
     </section>
 
@@ -58,7 +58,7 @@
     <section class="page hidden" id="pageImport" data-page="import">
     </section>
 
-    <!-- 错词本 -->
+    <!-- 上传与批改 -->
     <section class="page hidden" id="pageErrors" data-page="errors">
     </section>
 
@@ -88,13 +88,22 @@
       </svg>
       <span class="nav-label">单词本</span>
     </button>
-    <button class="nav-item" data-route="/import" aria-label="录入">
+    <button class="nav-item" data-route="/tasks" aria-label="任务单">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"/>
-        <line x1="12" y1="8" x2="12" y2="16"/>
-        <line x1="8" y1="12" x2="16" y2="12"/>
+        <path d="M9 2h6"/>
+        <path d="M12 14v4"/>
+        <path d="M12 2v3"/>
+        <path d="M5 8h14"/>
+        <rect x="4" y="5" width="16" height="15" rx="2"/>
       </svg>
-      <span class="nav-label">录入</span>
+      <span class="nav-label">任务单</span>
+    </button>
+    <button class="nav-item" data-route="/grading" aria-label="批改">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 20h9"/>
+        <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z"/>
+      </svg>
+      <span class="nav-label">批改</span>
     </button>
     <button class="nav-item" data-route="/stats" aria-label="统计">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

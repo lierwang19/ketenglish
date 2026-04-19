@@ -359,6 +359,26 @@ export async function getDailyTask(date) {
   );
 }
 
+export async function updateDailyTask(date, patch) {
+  const db = getDB();
+  return withTransaction(db, 'daily_tasks', 'readwrite', async ({ daily_tasks }) => {
+    const existing = await promisifyRequest(daily_tasks.get(date));
+    const next = {
+      ...(existing || { date }),
+      ...patch,
+      updated_at: new Date().toISOString(),
+    };
+    await promisifyRequest(daily_tasks.put(next));
+    return next;
+  });
+}
+
+export async function listDailyTasks() {
+  const db = getDB();
+  const tasks = await withTransaction(db, 'daily_tasks', 'readonly', ({ daily_tasks }) => getAll(daily_tasks));
+  return tasks.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+}
+
 // ==================== 统计查询 ====================
 
 /**

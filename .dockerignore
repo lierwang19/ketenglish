@@ -1,0 +1,10 @@
+.git
+.gitignore
+Dockerfile
+docker-compose.yml
+docs
+plan.md
+agent.md
+claude.md
+TODOS.md
+.DS_Store

@@ -13,7 +13,7 @@
 
 'use strict';
 
-const CACHE_NAME = 'ket-vocab-v1';
+const CACHE_NAME = 'ket-vocab-v3';
 
 // 预缓存的核心资源（shell）
 const PRECACHE_URLS = [
@@ -23,10 +23,29 @@ const PRECACHE_URLS = [
   '/vocab-review/js/db.js',
   '/vocab-review/js/scheduler.js',
   '/vocab-review/js/practice.js',
+  '/vocab-review/js/settings.js',
   '/vocab-review/js/stats.js',
+  '/vocab-review/vendor/tesseract/dist/tesseract.min.js',
+  '/vocab-review/vendor/tesseract/dist/worker.min.js',
+  '/vocab-review/vendor/tesseract/core/tesseract-core.wasm.js',
+  '/vocab-review/vendor/tesseract/core/tesseract-core.wasm',
+  '/vocab-review/vendor/tesseract/core/tesseract-core-simd.wasm.js',
+  '/vocab-review/vendor/tesseract/core/tesseract-core-simd.wasm',
+  '/vocab-review/vendor/tesseract/core/tesseract-core-relaxedsimd.wasm.js',
+  '/vocab-review/vendor/tesseract/core/tesseract-core-relaxedsimd.wasm',
+  '/vocab-review/vendor/tesseract/core/tesseract-core-lstm.wasm.js',
+  '/vocab-review/vendor/tesseract/core/tesseract-core-lstm.wasm',
+  '/vocab-review/vendor/tesseract/core/tesseract-core-simd-lstm.wasm.js',
+  '/vocab-review/vendor/tesseract/core/tesseract-core-simd-lstm.wasm',
+  '/vocab-review/vendor/tesseract/core/tesseract-core-relaxedsimd-lstm.wasm.js',
+  '/vocab-review/vendor/tesseract/core/tesseract-core-relaxedsimd-lstm.wasm',
+  '/vocab-review/vendor/tesseract/lang-data/4.0.0_best_int/eng.traineddata.gz',
+  '/vocab-review/vendor/tesseract/lang-data/4.0.0_best_int/chi_sim.traineddata.gz',
   '/shared/design-tokens.css',
   '/shared/db.js',
+  '/shared/feedback.js',
   '/shared/router.js',
+  '/shared/theme.js',
 ];
 
 // ==================== Install ====================

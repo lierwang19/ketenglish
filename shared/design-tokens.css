@@ -90,6 +90,62 @@
   --content-max-width:  640px;  /* 内容最大宽度（平板适配） */
 }
 
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --color-primary:        #7aa2ff;
+    --color-primary-dark:   #93b4ff;
+    --color-primary-light:  #182645;
+    --color-red:            #ff7b72;
+    --color-red-light:      #3a1f24;
+    --color-yellow:         #f2cc60;
+    --color-yellow-light:   #3b3215;
+    --color-green:          #7ee787;
+    --color-green-light:    #173620;
+    --color-success:        #7ee787;
+    --color-error:          #ff7b72;
+    --color-warning:        #f2cc60;
+    --color-info:           #79c0ff;
+    --color-text-primary:   #f3f6fb;
+    --color-text-secondary: #b8c1d1;
+    --color-text-disabled:  #7c869b;
+    --color-text-inverse:   #0f172a;
+    --color-bg:             #0b1220;
+    --color-surface:        #111827;
+    --color-border:         #243041;
+    --color-divider:        #172132;
+    --shadow-sm:            0 1px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.2);
+    --shadow-md:            0 10px 24px rgba(0,0,0,0.32), 0 4px 8px rgba(0,0,0,0.2);
+    --shadow-lg:            0 16px 32px rgba(0,0,0,0.4), 0 8px 16px rgba(0,0,0,0.24);
+  }
+}
+
+:root[data-theme="dark"] {
+  --color-primary:        #7aa2ff;
+  --color-primary-dark:   #93b4ff;
+  --color-primary-light:  #182645;
+  --color-red:            #ff7b72;
+  --color-red-light:      #3a1f24;
+  --color-yellow:         #f2cc60;
+  --color-yellow-light:   #3b3215;
+  --color-green:          #7ee787;
+  --color-green-light:    #173620;
+  --color-success:        #7ee787;
+  --color-error:          #ff7b72;
+  --color-warning:        #f2cc60;
+  --color-info:           #79c0ff;
+  --color-text-primary:   #f3f6fb;
+  --color-text-secondary: #b8c1d1;
+  --color-text-disabled:  #7c869b;
+  --color-text-inverse:   #0f172a;
+  --color-bg:             #0b1220;
+  --color-surface:        #111827;
+  --color-border:         #243041;
+  --color-divider:        #172132;
+  --shadow-sm:            0 1px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-md:            0 10px 24px rgba(0,0,0,0.32), 0 4px 8px rgba(0,0,0,0.2);
+  --shadow-lg:            0 16px 32px rgba(0,0,0,0.4), 0 8px 16px rgba(0,0,0,0.24);
+}
+
 /* 动效降级：用户偏好减少动效时全部关闭 */
 @media (prefers-reduced-motion: reduce) {
   *,

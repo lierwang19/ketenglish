@@ -11,6 +11,7 @@
 
 'use strict';
 
+import { playFeedbackTone } from '../../shared/feedback.js';
 import { updateProgress, getTodayStr, getAllWords } from './db.js';
 import {
   buildDailyTask,
@@ -20,6 +21,7 @@ import {
   isTaskComplete,
   getAccuracyRate,
 } from './scheduler.js';
+import { loadSettings } from './settings.js';
 // showToast：直接操作 DOM，避免与 app.js 循环依赖
 function showToast(message, type = 'default') {
   const container = document.getElementById('toastContainer');
@@ -281,6 +283,7 @@ async function handleSpellingAnswer(container, input, word) {
 
 async function recordAnswer(word, isCorrect) {
   const today = getTodayStr();
+  const settings = loadSettings();
 
   try {
     await updateProgress(word.id, isCorrect ? 'correct' : 'wrong', today);
@@ -299,6 +302,10 @@ async function recordAnswer(word, isCorrect) {
     // 插入回炉题
     insertRehearsal(task.queue, word, currentIndex);
     task.total = task.queue.length;
+  }
+
+  if (settings.enableSound) {
+    playFeedbackTone(isCorrect ? 'success' : 'error');
   }
 }
 

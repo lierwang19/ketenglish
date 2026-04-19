@@ -157,12 +157,12 @@ body {
 .empty-state-title { font-size: var(--font-size-lg); font-weight: var(--font-weight-bold); color: var(--color-text-secondary); }
 .empty-state-desc { font-size: var(--font-size-sm); color: var(--color-text-disabled); line-height: var(--line-height-loose); }
 
-.loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.7); display: flex; align-items: center; justify-content: center; z-index: 300; backdrop-filter: blur(2px); }
+.loading-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.18); display: flex; align-items: center; justify-content: center; z-index: 300; backdrop-filter: blur(2px); }
 .loading-spinner { width: 40px; height: 40px; border: 3px solid var(--color-border); border-top-color: var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .toast-container { position: fixed; bottom: calc(var(--nav-height) + var(--space-4)); left: 50%; transform: translateX(-50%); z-index: 200; display: flex; flex-direction: column; align-items: center; gap: var(--space-2); pointer-events: none; width: min(90vw, 360px); }
-.toast { background: #1A1A2E; color: #fff; padding: var(--space-3) var(--space-5); border-radius: var(--radius-full); font-size: var(--font-size-sm); box-shadow: var(--shadow-lg); animation: toast-in var(--transition-base) ease; pointer-events: auto; text-align: center; }
+.toast { background: var(--color-text-primary); color: var(--color-bg); padding: var(--space-3) var(--space-5); border-radius: var(--radius-full); font-size: var(--font-size-sm); box-shadow: var(--shadow-lg); animation: toast-in var(--transition-base) ease; pointer-events: auto; text-align: center; }
 .toast.toast-success { background: var(--color-success); }
 .toast.toast-error   { background: var(--color-error); }
 .toast.toast-warning { background: var(--color-warning); color: var(--color-text-primary); }
@@ -187,7 +187,7 @@ body {
 
 .set-card:hover {
   box-shadow: var(--shadow-md);
-  border-color: rgba(79,123,247,0.3);
+  border-color: var(--color-primary);
 }
 .set-card:active { transform: scale(0.99); }
 
@@ -294,7 +294,7 @@ body {
   background: var(--color-surface);
   border-top: 1px solid var(--color-border);
   z-index: 90;
-  box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
+  box-shadow: var(--shadow-md);
 }
 
 .player-bar-inner {
@@ -422,7 +422,7 @@ body {
   transform: translate(-50%, -50%);
   width: 14px; height: 14px;
   background: var(--color-primary);
-  border: 2px solid white;
+  border: 2px solid var(--color-surface);
   border-radius: 50%;
   box-shadow: var(--shadow-sm);
   left: 0;
@@ -553,7 +553,7 @@ body {
 
 .badge-resolved {
   background: var(--color-green-light);
-  color: #2e7d32;
+  color: var(--color-green);
 }
 
 /* ========== 统计卡片 ========== */
