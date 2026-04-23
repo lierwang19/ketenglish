@@ -11,6 +11,7 @@
 
 import {
   getAllWords,
+  getDueWords,
   getDailyTask,
   saveDailyTask,
   getTodayStr,
@@ -27,9 +28,28 @@ export async function buildDailyTask(settings = {}, force = false) {
     if (existing?.sections) return existing;
   }
 
-  const words = await getAllWords();
-  const candidates = words
-    .filter(word => word.progress)
+  // 主候选：到期的词（走 next_review_at 索引，避免全表扫描）
+  const dueWords = await getDueWords(today);
+  const pool = dueWords.filter(w => w.progress);
+
+  // 抽查池：按"基础/拓展"分别判断到期数是否够填满本类型预算。
+  // 任一类型不够（或开启了绿色低频抽查），就回退到全表扫描补"未来候选"。
+  // 修复 codex 发现的回归：原先按总数判断，会在两种类型严重偏科时让某栏空掉。
+  const dueBasicCount = pool.filter(w => w.word_type === 'spelling').length;
+  const dueExtendedCount = pool.length - dueBasicCount;
+  const basicNeedsFallback = dueBasicCount < (cfg.basicDailyCount || 0) * 1.5;
+  const extendedNeedsFallback = dueExtendedCount < (cfg.extendedDailyCount || 0) * 1.5;
+  const needSpotCheck = cfg.enableLowFrequencyCheck || basicNeedsFallback || extendedNeedsFallback;
+  if (needSpotCheck) {
+    const dueIds = new Set(pool.map(w => w.id));
+    const allWords = await getAllWords();
+    for (const w of allWords) {
+      if (!w.progress || dueIds.has(w.id)) continue;
+      pool.push(w);
+    }
+  }
+
+  const candidates = pool
     .map(word => ({ ...word, score: scoreWord(word, today, cfg) }))
     .filter(word => word.score > 0);
 

@@ -24,6 +24,7 @@ import {
   upsertWeek,
   addWords,
   exportAllData,
+  importAllData,
   getDailyTask,
   updateDailyTask,
   listDailyTasks,
@@ -491,6 +492,8 @@ async function renderImport(container) {
       <div class="task-toolbar">
         <button class="btn btn-primary" id="btnImport">导入单词</button>
         <button class="btn btn-ghost" id="btnExport">导出全部数据</button>
+        <button class="btn btn-ghost" id="btnRestore">从备份恢复</button>
+        <input type="file" id="restoreFileInput" accept="application/json" hidden />
       </div>
     </section>
 
@@ -608,9 +611,14 @@ function bindImportEvents(container) {
 
     showLoading(true);
     try {
-      const ids = await addWords(wordList);
+      const { inserted, skipped } = await addWords(wordList);
       showLoading(false);
-      showToast(`成功导入 ${ids.length} 个单词`);
+      const dupCount = skipped.filter(s => s.reason === 'duplicate').length;
+      const invalidCount = skipped.filter(s => s.reason === 'invalid').length;
+      let msg = `成功导入 ${inserted.length} 个单词`;
+      if (dupCount) msg += `，跳过重复 ${dupCount}`;
+      if (invalidCount) msg += `，跳过无效 ${invalidCount}`;
+      showToast(msg);
       if (wordDataInput) wordDataInput.value = '';
     } catch (err) {
       showLoading(false);
@@ -634,6 +642,30 @@ function bindImportEvents(container) {
     } catch (err) {
       showLoading(false);
       showToast(`导出失败：${err.message}`, 'error');
+    }
+  });
+
+  const restoreFileInput = container.querySelector('#restoreFileInput');
+  container.querySelector('#btnRestore')?.addEventListener('click', () => {
+    if (!confirm('从备份恢复会清空当前所有单词、进度、日志，并用备份内容替换。是否继续？')) return;
+    restoreFileInput?.click();
+  });
+  restoreFileInput?.addEventListener('change', async () => {
+    const file = restoreFileInput.files?.[0];
+    if (!file) return;
+    showLoading(true);
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
+      const { counts } = await importAllData(json);
+      showLoading(false);
+      showToast(`恢复完成：单词 ${counts.words} · 进度 ${counts.word_progress} · 周次 ${counts.weekly_batches}`);
+      restoreFileInput.value = '';
+      setTimeout(() => location.reload(), 800);
+    } catch (err) {
+      showLoading(false);
+      showToast(`恢复失败：${err.message}`, 'error');
+      restoreFileInput.value = '';
     }
   });
 

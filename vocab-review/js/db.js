@@ -19,6 +19,12 @@ import { openDatabase, withTransaction, promisifyRequest, getAll, cursorGetAll }
 const DB_NAME    = 'ket-vocab';
 const DB_VERSION = 1;
 
+// 命名分层约定（不要混用）：
+//   DB 层（words.word_type）   : 'recognition' | 'spelling'
+//   调度器/UI 层               : 'extended'    | 'basic'
+//   两者一一对应：spelling ↔ basic, recognition ↔ extended
+//   修改任一层都要同步另一层（grep 'word_type' 与 grep 'basic\\|extended'）
+
 let _db = null;
 
 // ==================== Schema 定义 ====================
@@ -106,51 +112,106 @@ export async function getAllWeeks() {
 
 /**
  * 批量写入单词（同一事务，原子性）
+ * 去重规则：同一 week_id 下，english（lowercase + trim）相同视为同一词，跳过
+ *
  * @param {Array<{english, chinese, part_of_speech, word_type, week_id}>} wordList
- * @returns {Promise<number[]>} 新插入的 id 列表
+ * @returns {Promise<{ inserted: number[], skipped: Array<{english, week_id}> }>}
  */
 export async function addWords(wordList) {
-  if (!wordList?.length) return [];
+  if (!wordList?.length) return { inserted: [], skipped: [] };
   const db = getDB();
 
   return withTransaction(db, ['words', 'word_progress'], 'readwrite', async ({ words, word_progress }) => {
     const now  = new Date().toISOString();
     const today = getTodayStr();
-    const ids  = [];
+    const inserted = [];
+    const skipped = [];
+
+    // 拉一次同周次现有单词集合，避免每个词单独走索引
+    const existingByWeek = new Map();
 
     for (const w of wordList) {
+      const english = String(w.english || '').trim().toLowerCase();
+      const chinese = String(w.chinese || '').trim();
+      const weekId  = w.week_id;
+      if (!english || !chinese || !weekId) {
+        skipped.push({ english, week_id: weekId, reason: 'invalid' });
+        continue;
+      }
+
+      // 懒加载该周次已有单词（按 english 建集合）
+      if (!existingByWeek.has(weekId)) {
+        const rows = await cursorGetAll(words.index('week_id'), IDBKeyRange.only(weekId));
+        existingByWeek.set(weekId, new Set(rows.map(r => String(r.english || '').toLowerCase())));
+      }
+      const set = existingByWeek.get(weekId);
+      if (set.has(english)) {
+        skipped.push({ english, week_id: weekId, reason: 'duplicate' });
+        continue;
+      }
+
       const id = await promisifyRequest(
         words.add({
-          english:        w.english.trim().toLowerCase(),
-          chinese:        w.chinese.trim(),
+          english,
+          chinese,
           part_of_speech: w.part_of_speech || '',
-          word_type:      w.word_type || 'recognition', // 'recognition'|'spelling'
-          week_id:        w.week_id,
+          word_type:      w.word_type || 'recognition',
+          week_id:        weekId,
           created_at:     now,
         })
       );
-      ids.push(id);
+      inserted.push(id);
+      set.add(english);
 
-      // 初始化进度记录（首次加入即为第 0 天，当天可复习）
       await promisifyRequest(
         word_progress.add({
           word_id:            id,
-          mastery_level:      'red',     // 初始红色
+          mastery_level:      'red',
           consecutive_correct: 0,
-          interval_index:     0,         // 对应 INTERVALS[0] = 0（当天复习）
-          next_review_at:     today,     // 当天就要复习
+          interval_index:     0,
+          next_review_at:     today,
           last_reviewed_at:   null,
           total_correct:      0,
           total_wrong:        0,
-          is_error_word:      false,     // 是否在错词本中
-          error_count_today:  0,         // 今日答错次数（用于回炉判断）
+          is_error_word:      false,
+          error_count_today:  0,
           created_at:         now,
           updated_at:         now,
         })
       );
     }
 
-    return ids;
+    return { inserted, skipped };
+  });
+}
+
+/**
+ * 修改单词文本（不影响进度）
+ * 适合修拼写错误、订正中文释义。
+ * 注意：english 改后会再次小写 + trim；如果与同周次已有词重复会抛错。
+ */
+export async function updateWord(wordId, patch) {
+  const db = getDB();
+  return withTransaction(db, 'words', 'readwrite', async ({ words }) => {
+    const existing = await promisifyRequest(words.get(wordId));
+    if (!existing) throw new Error(`[VocabDB] word not found: ${wordId}`);
+
+    const next = { ...existing };
+    if (patch.english !== undefined) next.english = String(patch.english).trim().toLowerCase();
+    if (patch.chinese !== undefined) next.chinese = String(patch.chinese).trim();
+    if (patch.part_of_speech !== undefined) next.part_of_speech = patch.part_of_speech || '';
+    if (patch.word_type !== undefined) next.word_type = patch.word_type;
+    next.updated_at = new Date().toISOString();
+
+    // 同周次重名校验（排除自身）
+    if (patch.english !== undefined && next.english !== existing.english) {
+      const sameWeek = await cursorGetAll(words.index('week_id'), IDBKeyRange.only(next.week_id));
+      const conflict = sameWeek.find(w => w.id !== wordId && String(w.english).toLowerCase() === next.english);
+      if (conflict) throw new Error(`同周已存在单词：${next.english}`);
+    }
+
+    await promisifyRequest(words.put(next));
+    return next;
   });
 }
 
@@ -226,18 +287,13 @@ export async function getDueWords(today) {
 
   if (!dueProgresses.length) return [];
 
-  // 批量拉取对应的 word 记录
+  // 批量拉取对应的 word 记录（同事务内并发触发，避免 N 次串行 roundtrip）
   const wordIds = dueProgresses.map(p => p.word_id);
-  const words = await withTransaction(db, 'words', 'readonly', async ({ words: store }) => {
-    const result = [];
-    for (const id of wordIds) {
-      const w = await promisifyRequest(store.get(id));
-      if (w) result.push(w);
-    }
-    return result;
-  });
+  const words = await withTransaction(db, 'words', 'readonly', ({ words: store }) =>
+    Promise.all(wordIds.map(id => promisifyRequest(store.get(id))))
+  );
 
-  const wordMap = new Map(words.map(w => [w.id, w]));
+  const wordMap = new Map(words.filter(Boolean).map(w => [w.id, w]));
   return dueProgresses
     .filter(p => wordMap.has(p.word_id))
     .map(p => ({ ...wordMap.get(p.word_id), progress: p }));
@@ -411,17 +467,14 @@ export async function getErrorWords() {
   if (!errorProgresses.length) return [];
 
   const wordIds = errorProgresses.map(p => p.word_id);
-  const words = await withTransaction(db, 'words', 'readonly', async ({ words: store }) => {
-    const result = [];
-    for (const id of wordIds) {
-      const w = await promisifyRequest(store.get(id));
-      if (w) result.push(w);
-    }
-    return result;
-  });
+  const words = await withTransaction(db, 'words', 'readonly', ({ words: store }) =>
+    Promise.all(wordIds.map(id => promisifyRequest(store.get(id))))
+  );
 
-  const wordMap = new Map(words.map(w => [w.id, w]));
-  return errorProgresses.map(p => ({ ...wordMap.get(p.word_id), progress: p }));
+  const wordMap = new Map(words.filter(Boolean).map(w => [w.id, w]));
+  return errorProgresses
+    .filter(p => wordMap.has(p.word_id))
+    .map(p => ({ ...wordMap.get(p.word_id), progress: p }));
 }
 
 /**
@@ -563,4 +616,39 @@ export async function exportAllData() {
     weekly_batches: batches,
     daily_tasks:  tasks,
   };
+}
+
+/**
+ * 从 JSON 备份恢复（默认覆盖：清空所有表后重写）
+ *
+ * 安全约束：
+ *   - version 必须 ≤ 当前 DB_VERSION（高版本备份不允许导入）
+ *   - 必须包含 5 张表（words / word_progress / review_logs / weekly_batches / daily_tasks）
+ *   - 一个事务内完成清空 + 写入，失败自动回滚
+ *
+ * @param {object} data exportAllData 的输出
+ * @returns {Promise<{ counts: Record<string, number> }>}
+ */
+export async function importAllData(data) {
+  if (!data || typeof data !== 'object') throw new Error('备份文件格式错误');
+  if (typeof data.version !== 'number' || data.version > DB_VERSION) {
+    throw new Error(`备份版本不兼容（备份 v${data.version}, 当前 v${DB_VERSION}）`);
+  }
+  const required = ['words', 'word_progress', 'review_logs', 'weekly_batches', 'daily_tasks'];
+  for (const name of required) {
+    if (!Array.isArray(data[name])) throw new Error(`备份缺少表：${name}`);
+  }
+
+  const db = getDB();
+  return withTransaction(db, required, 'readwrite', async (stores) => {
+    const counts = {};
+    for (const name of required) {
+      await promisifyRequest(stores[name].clear());
+      for (const row of data[name]) {
+        await promisifyRequest(stores[name].put(row));
+      }
+      counts[name] = data[name].length;
+    }
+    return { counts };
+  });
 }

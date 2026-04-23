@@ -6,14 +6,14 @@
  *   - 数据请求（/api/）：Network First（保鲜）
  *
  * 更新模型：
- *   不调用 self.skipWaiting()，改为向客户端发送 'SW_UPDATE_AVAILABLE' 消息，
- *   由用户主动点击"立即刷新"后再 skipWaiting。
- *   原因：skipWaiting + clients.claim 与 IDB schema 迁移存在竞态风险。
+ *   不调用 self.skipWaiting()。新 SW 进入 waiting 状态后，
+ *   页面端通过 reg.addEventListener('updatefound') + newWorker.statechange='installed'
+ *   监测到，弹出"立即刷新"banner。用户点确认后页面发 SKIP_WAITING 消息给本 SW。
  */
 
 'use strict';
 
-const CACHE_NAME = 'ket-vocab-v3';
+const CACHE_NAME = 'ket-vocab-v4';
 
 // 预缓存的核心资源（shell）
 const PRECACHE_URLS = [
@@ -119,14 +119,4 @@ self.addEventListener('message', (event) => {
     // 用户点击"立即刷新"后发出此消息，SW 才真正激活
     self.skipWaiting();
   }
-});
-
-// ==================== 通知等待中的 client ====================
-// 新 SW 进入 waiting 状态时，告知所有页面有更新可用
-self.addEventListener('install', () => {
-  self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
-    clients.forEach(client => {
-      client.postMessage({ type: 'SW_UPDATE_AVAILABLE' });
-    });
-  });
 });
