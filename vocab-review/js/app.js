@@ -156,10 +156,27 @@ async function renderHome(container) {
 
   try {
     const settings = loadSettings();
-    const [task, weeks, words, mastery, tasks] = await Promise.all([
+    const words = await getAllWords();
+    if (!words.length) {
+      container.innerHTML = `
+        <section class="hero-panel">
+          <div class="hero-copy">
+            <span class="eyebrow">欢迎使用</span>
+            <h2>先录入本周单词</h2>
+            <p>还没有任何单词。录入老师布置的基础词汇 / 拓展词汇后，系统会自动生成今日任务单。</p>
+          </div>
+          <div class="hero-actions">
+            <button class="btn btn-primary" id="btnOpenImport">录入本周单词</button>
+          </div>
+        </section>
+      `;
+      container.querySelector('#btnOpenImport')?.addEventListener('click', () => window._router?.go('/import'));
+      return;
+    }
+
+    const [task, weeks, mastery, tasks] = await Promise.all([
       buildDailyTask(settings),
       getAllWeeks(),
-      getAllWords(),
       getMasteryStats(),
       listDailyTasks(),
     ]);
@@ -276,6 +293,19 @@ async function renderTasks(container) {
 
   try {
     const settings = loadSettings();
+    const words = await getAllWords();
+    if (!words.length) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-title">还没有单词，无法生成任务单</div>
+          <div class="empty-state-desc">先去单词本录入本周老师布置的基础词汇和拓展词汇，再回来生成今日任务单。</div>
+          <button class="btn btn-primary" id="btnGoImport">去录入单词</button>
+        </div>
+      `;
+      container.querySelector('#btnGoImport')?.addEventListener('click', () => window._router?.go('/import'));
+      return;
+    }
+
     const task = await buildDailyTask(settings);
 
     container.innerHTML = `
@@ -1286,7 +1316,18 @@ async function renderGrading(container) {
   container.innerHTML = renderLoading();
 
   try {
-    const task = await getDailyTask(getTodayStr());
+    const [task, words] = await Promise.all([getDailyTask(getTodayStr()), getAllWords()]);
+    if (!words.length) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-title">还没有单词，无法批改</div>
+          <div class="empty-state-desc">单词本为空，今日任务单也无法生成。先去录入本周单词。</div>
+          <button class="btn btn-primary" id="btnGoImport">去录入单词</button>
+        </div>
+      `;
+      container.querySelector('#btnGoImport')?.addEventListener('click', () => window._router?.go('/import'));
+      return;
+    }
     if (!task?.sections) {
       container.innerHTML = `
         <div class="empty-state">
