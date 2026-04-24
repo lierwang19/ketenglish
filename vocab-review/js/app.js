@@ -33,6 +33,7 @@ import {
 import { buildDailyTask } from './scheduler.js';
 import { initStats } from './stats.js';
 import { loadSettings, saveSettings } from './settings.js';
+import { loadCatalog, loadTextbook, importDay, summarizeDay } from './textbook-importer.js';
 
 const OCR_ASSET_BASE = '/vocab-review/vendor/tesseract';
 const OCR_SCRIPT_PATH = `${OCR_ASSET_BASE}/dist/tesseract.min.js`;
@@ -495,6 +496,41 @@ async function renderImport(container) {
     <section class="panel">
       <div class="section-head">
         <div>
+          <div class="section-kicker">教材库导入（推荐）</div>
+          <h3>从内置教材选 Day 一键导入</h3>
+        </div>
+      </div>
+      <p class="section-desc">已内置教材按 Day 切分，选定教材和 Day 后预览，再写入选定周次。同周已存在的英文词会自动跳过。</p>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">选择教材</label>
+          <select class="form-select" id="tbSelectBook">
+            <option value="">— 加载中 —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">选择 Day</label>
+          <select class="form-select" id="tbSelectDay" disabled>
+            <option value="">— 请先选择教材 —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">导入到周次</label>
+          <select class="form-select" id="tbSelectWeek">
+            <option value="">— 请先选择周次 —</option>
+            ${weekOptions}
+          </select>
+        </div>
+      </div>
+      <div class="placeholder-card" id="tbPreview">选定教材和 Day 后这里会显示预览。</div>
+      <div class="task-toolbar">
+        <button class="btn btn-primary" id="tbBtnImport" disabled>导入到选定周次</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <div>
           <div class="section-kicker">批量录入</div>
           <h3>粘贴词表或 CSV</h3>
         </div>
@@ -627,6 +663,8 @@ function bindImportEvents(container) {
       showToast(`添加失败：${err.message}`, 'error');
     }
   });
+
+  bindTextbookImport(container);
 
   container.querySelector('#btnImport')?.addEventListener('click', async () => {
     const weekId = Number(container.querySelector('#selectWeek')?.value);
@@ -772,6 +810,103 @@ function bindImportEvents(container) {
   });
 
   updateOcrMeta(selectedOcrImage);
+}
+
+function bindTextbookImport(container) {
+  const bookSel = container.querySelector('#tbSelectBook');
+  const daySel = container.querySelector('#tbSelectDay');
+  const weekSel = container.querySelector('#tbSelectWeek');
+  const preview = container.querySelector('#tbPreview');
+  const btn = container.querySelector('#tbBtnImport');
+  if (!bookSel || !daySel || !weekSel || !preview || !btn) return;
+
+  let currentBook = null;
+
+  const refreshBtn = () => {
+    btn.disabled = !(bookSel.value && daySel.value && weekSel.value);
+  };
+
+  const renderPreview = () => {
+    if (!currentBook || !daySel.value) {
+      preview.textContent = '选定教材和 Day 后这里会显示预览。';
+      return;
+    }
+    const dayEntry = currentBook.days.find(d => d.day === Number(daySel.value));
+    if (!dayEntry) {
+      preview.textContent = '该 Day 暂无内容。';
+      return;
+    }
+    const s = summarizeDay(dayEntry);
+    const basicSample = s.basicSample.join('、') || '—';
+    const extSample = s.extendedSample.join('、') || '—';
+    preview.innerHTML = `
+      <div><strong>主题：</strong>${esc(s.theme || '—')}</div>
+      <div style="margin-top:6px;"><strong>基础词（会写）：</strong>${s.basicCount} 个 · 例：${esc(basicSample)}</div>
+      <div style="margin-top:4px;"><strong>拓展词（认读）：</strong>${s.extendedCount} 个 · 例：${esc(extSample)}</div>
+      <div style="margin-top:6px;color:var(--text-muted);font-size:12px;">同周已存在的英文词将自动跳过。</div>
+    `;
+  };
+
+  loadCatalog().then(catalog => {
+    const books = catalog.textbooks || [];
+    if (!books.length) {
+      bookSel.innerHTML = '<option value="">— 暂无内置教材 —</option>';
+      return;
+    }
+    bookSel.innerHTML = '<option value="">— 请选择教材 —</option>' +
+      books.map(b => `<option value="${esc(b.id)}">${esc(b.title)}（已开放 ${b.days_available}/${b.days_count} Day）</option>`).join('');
+  }).catch(err => {
+    bookSel.innerHTML = `<option value="">加载失败：${esc(err.message)}</option>`;
+  });
+
+  bookSel.addEventListener('change', async () => {
+    daySel.disabled = true;
+    daySel.innerHTML = '<option value="">— 加载中 —</option>';
+    currentBook = null;
+    renderPreview();
+    refreshBtn();
+    if (!bookSel.value) {
+      daySel.innerHTML = '<option value="">— 请先选择教材 —</option>';
+      return;
+    }
+    try {
+      const book = await loadTextbook(bookSel.value);
+      currentBook = book;
+      const days = book.days || [];
+      if (!days.length) {
+        daySel.innerHTML = '<option value="">— 暂无 Day —</option>';
+        return;
+      }
+      daySel.innerHTML = '<option value="">— 请选择 Day —</option>' +
+        days.map(d => `<option value="${d.day}">Day ${d.day}${d.theme ? ' · ' + esc(d.theme) : ''}</option>`).join('');
+      daySel.disabled = false;
+    } catch (err) {
+      daySel.innerHTML = `<option value="">加载失败：${esc(err.message)}</option>`;
+    }
+  });
+
+  daySel.addEventListener('change', () => { renderPreview(); refreshBtn(); });
+  weekSel.addEventListener('change', refreshBtn);
+
+  btn.addEventListener('click', async () => {
+    const textbookId = bookSel.value;
+    const day = daySel.value;
+    const weekId = Number(weekSel.value);
+    if (!textbookId || !day || !weekId) return;
+    btn.disabled = true;
+    showLoading(true);
+    try {
+      const r = await importDay({ textbookId, day, weekId });
+      const total = r.basicTotal + r.extendedTotal;
+      showToast(`已写入 ${r.inserted}/${total}，跳过 ${r.skipped}`);
+      window._router?.replace('/words');
+    } catch (err) {
+      showToast(`导入失败：${err.message}`, 'error');
+    } finally {
+      showLoading(false);
+      refreshBtn();
+    }
+  });
 }
 
 function parseWordText(text, weekId, wordType) {

@@ -13,7 +13,7 @@
 
 'use strict';
 
-const CACHE_NAME = 'ket-vocab-v4';
+const CACHE_NAME = 'ket-vocab-v5';
 
 // 预缓存的核心资源（shell）
 const PRECACHE_URLS = [
@@ -25,6 +25,9 @@ const PRECACHE_URLS = [
   '/vocab-review/js/practice.js',
   '/vocab-review/js/settings.js',
   '/vocab-review/js/stats.js',
+  '/vocab-review/js/textbook-importer.js',
+  '/vocab-review/data/textbooks/index.json',
+  '/vocab-review/data/textbooks/ket-core-day.json',
   '/vocab-review/vendor/tesseract/dist/tesseract.min.js',
   '/vocab-review/vendor/tesseract/dist/worker.min.js',
   '/vocab-review/vendor/tesseract/core/tesseract-core.wasm.js',
