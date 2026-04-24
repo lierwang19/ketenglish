@@ -33,7 +33,12 @@ import {
 import { buildDailyTask } from './scheduler.js';
 import { initStats } from './stats.js';
 import { loadSettings, saveSettings } from './settings.js';
-import { loadCatalog, loadTextbook, importDay, summarizeDay } from './textbook-importer.js';
+// 教材库导入：用动态 import,避免老 SW(v4)用户离线时引用未预缓存的新模块导致整站启动失败
+let _textbookImporter = null;
+async function loadTextbookImporter() {
+  if (!_textbookImporter) _textbookImporter = await import('./textbook-importer.js');
+  return _textbookImporter;
+}
 
 const OCR_ASSET_BASE = '/vocab-review/vendor/tesseract';
 const OCR_SCRIPT_PATH = `${OCR_ASSET_BASE}/dist/tesseract.min.js`;
@@ -812,13 +817,22 @@ function bindImportEvents(container) {
   updateOcrMeta(selectedOcrImage);
 }
 
-function bindTextbookImport(container) {
+async function bindTextbookImport(container) {
   const bookSel = container.querySelector('#tbSelectBook');
   const daySel = container.querySelector('#tbSelectDay');
   const weekSel = container.querySelector('#tbSelectWeek');
   const preview = container.querySelector('#tbPreview');
   const btn = container.querySelector('#tbBtnImport');
   if (!bookSel || !daySel || !weekSel || !preview || !btn) return;
+
+  let mod;
+  try {
+    mod = await loadTextbookImporter();
+  } catch (err) {
+    bookSel.innerHTML = `<option value="">教材模块加载失败：${esc(err.message)}</option>`;
+    return;
+  }
+  const { loadCatalog, loadTextbook, importDay, summarizeDay } = mod;
 
   let currentBook = null;
 

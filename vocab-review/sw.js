@@ -13,7 +13,7 @@
 
 'use strict';
 
-const CACHE_NAME = 'ket-vocab-v5';
+const CACHE_NAME = 'ket-vocab-v6';
 
 // 预缓存的核心资源（shell）
 const PRECACHE_URLS = [

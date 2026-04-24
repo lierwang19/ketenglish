@@ -30,10 +30,10 @@
         { "en": "cousin",       "cn": "堂（表）兄弟姐妹",          "pos": "n." }
       ],
       "extended": [
-        { "en": "Mr.",          "cn": "先生",                  "pos": "n." },
-        { "en": "Mrs.",         "cn": "女士；夫人",            "pos": "n." },
-        { "en": "Ms.",          "cn": "女士；小姐；太太",      "pos": "n." },
-        { "en": "Miss",         "cn": "小姐（年轻未婚女子）",  "pos": "n." },
+        { "en": "mr",           "cn": "先生（Mr.）",                  "pos": "n." },
+        { "en": "mrs",          "cn": "女士；夫人（Mrs.）",            "pos": "n." },
+        { "en": "ms",           "cn": "女士；小姐；太太（Ms.）",       "pos": "n." },
+        { "en": "miss",         "cn": "小姐（Miss，年轻未婚女子）",    "pos": "n." },
         { "en": "boy",          "cn": "男孩",                  "pos": "n." },
         { "en": "girl",         "cn": "女孩",                  "pos": "n." },
         { "en": "teenager",     "cn": "青少年",                "pos": "n." },
