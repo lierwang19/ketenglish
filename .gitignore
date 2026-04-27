@@ -14,6 +14,9 @@
 *.mov
 *.avi
 
+# 教材 / 教辅 PDF（版权顾虑 + 二进制大文件，不入库）
+docs/*.pdf
+
 # 编辑器
 .vscode/
 .idea/
