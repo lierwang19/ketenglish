@@ -5,15 +5,17 @@
  *   - 静态资源：Cache First（离线可用）
  *   - 数据请求（/api/）：Network First（保鲜）
  *
- * 更新模型：
- *   不调用 self.skipWaiting()。新 SW 进入 waiting 状态后，
- *   页面端通过 reg.addEventListener('updatefound') + newWorker.statechange='installed'
- *   监测到，弹出"立即刷新"banner。用户点确认后页面发 SKIP_WAITING 消息给本 SW。
+ * 更新模型（自动激活）：
+ *   install → self.skipWaiting() 立即跳过 waiting
+ *   activate → clients.claim() 立即接管所有页面
+ *   理由：本应用所有用户数据存在页面 IndexedDB，SW 只负责静态资源缓存，
+ *   切换 SW 版本不影响数据。下一次 reload 自动用上新版本，用户无感。
+ *   银行级"等用户点确认"对家长/孩子学习场景是过度设计。
  */
 
 'use strict';
 
-const CACHE_NAME = 'ket-vocab-v6';
+const CACHE_NAME = 'ket-vocab-v10';
 
 // 预缓存的核心资源（shell）
 const PRECACHE_URLS = [
@@ -62,10 +64,8 @@ self.addEventListener('install', (event) => {
             console.warn(`[SW] 预缓存失败: ${url}`, err);
           })
         )
-      );
+      ).then(() => self.skipWaiting()); // 新 SW 装好立即跳过 waiting
     })
-    // 故意不调用 self.skipWaiting()
-    // 新 SW 进入 waiting 状态，等用户确认后再激活
   );
 });
 

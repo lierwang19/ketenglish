@@ -108,6 +108,72 @@ export async function getAllWeeks() {
   );
 }
 
+/**
+ * 重命名周次（只改 label）
+ */
+export async function renameWeek(weekId, label) {
+  const db = getDB();
+  return withTransaction(db, 'weekly_batches', 'readwrite', async ({ weekly_batches }) => {
+    const existing = await promisifyRequest(weekly_batches.get(weekId));
+    if (!existing) throw new Error(`周次不存在：${weekId}`);
+    const next = { ...existing, label: String(label || '').trim() || existing.label, updated_at: new Date().toISOString() };
+    await promisifyRequest(weekly_batches.put(next));
+    return next;
+  });
+}
+
+/**
+ * 清空指定周次下的所有单词（words + word_progress + review_logs），但保留周次本身。
+ * 用于"录错重录"场景。
+ */
+export async function clearWeekWords(weekId) {
+  const db = getDB();
+  return withTransaction(db, ['words', 'word_progress', 'review_logs'], 'readwrite',
+    async ({ words, word_progress, review_logs }) => {
+      const rows = await cursorGetAll(words.index('week_id'), IDBKeyRange.only(weekId));
+      let deleted = 0;
+      for (const w of rows) {
+        await promisifyRequest(words.delete(w.id));
+        await promisifyRequest(word_progress.delete(w.id));
+        const logs = await cursorGetAll(review_logs.index('word_id'), IDBKeyRange.only(w.id));
+        for (const log of logs) {
+          await promisifyRequest(review_logs.delete(log.id));
+        }
+        deleted++;
+      }
+      return { deleted };
+    }
+  );
+}
+
+/**
+ * 删除整个周次（连带其所有单词、进度、日志）
+ * 必须单事务原子完成，避免出现"周次已删但词残留"或"词删完但周次还在"的中间态。
+ */
+export async function deleteWeek(weekId) {
+  const db = getDB();
+  return withTransaction(
+    db,
+    ['words', 'word_progress', 'review_logs', 'weekly_batches'],
+    'readwrite',
+    async ({ words, word_progress, review_logs, weekly_batches }) => {
+      const rows = await cursorGetAll(words.index('week_id'), IDBKeyRange.only(weekId));
+      let deleted = 0;
+      for (const w of rows) {
+        await promisifyRequest(words.delete(w.id));
+        await promisifyRequest(word_progress.delete(w.id));
+        const logs = await cursorGetAll(review_logs.index('word_id'), IDBKeyRange.only(w.id));
+        for (const log of logs) {
+          await promisifyRequest(review_logs.delete(log.id));
+        }
+        deleted++;
+      }
+      await promisifyRequest(weekly_batches.delete(weekId));
+      return { deleted };
+    }
+  );
+}
+
 // ==================== words ====================
 
 /**

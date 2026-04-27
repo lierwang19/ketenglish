@@ -834,3 +834,83 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* ==================== 危险操作确认对话框 ==================== */
+.danger-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--space-4);
+  animation: fadeIn 0.18s ease;
+}
+.danger-modal {
+  background: var(--color-bg-primary, #fff);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-lg, 16px);
+  max-width: 420px;
+  width: 100%;
+  padding: var(--space-6, 24px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4, 16px);
+}
+.danger-modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-danger, #d92d20);
+}
+.danger-modal-message {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+  white-space: pre-line;
+}
+.danger-modal-hint {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+.danger-modal-hint code {
+  background: var(--color-bg-secondary, #f3f4f6);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.danger-modal-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 15px;
+  border: 1px solid var(--color-border, #d0d5dd);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-bg-primary, #fff);
+  color: var(--color-text-primary);
+}
+.danger-modal-input:focus {
+  outline: none;
+  border-color: var(--color-danger, #d92d20);
+  box-shadow: 0 0 0 3px rgba(217, 45, 32, 0.15);
+}
+.danger-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3, 12px);
+}
+.danger-modal-actions .btn-danger {
+  background: var(--color-danger, #d92d20);
+  color: #fff;
+  border: none;
+}
+.danger-modal-actions .btn-danger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

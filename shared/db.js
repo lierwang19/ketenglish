@@ -38,6 +38,12 @@ export function openDatabase(name, version, onUpgrade) {
 
 /**
  * 在指定 store 上执行事务操作
+ *
+ * ⚠️ 约束：fn 内部只允许 await IDB 请求（promisifyRequest / cursorGetAll / getAll 等），
+ * 不要 await fetch / setTimeout / 任何非 IDB 的 Promise。IndexedDB 事务在
+ * 当前微任务队列空闲时会自动 commit，混入非 IDB await 会导致 TransactionInactiveError。
+ * 多 store 原子操作请把所有 store 名一起传入 storeNames。
+ *
  * @param {IDBDatabase} db
  * @param {string|string[]} storeNames
  * @param {'readonly'|'readwrite'} mode

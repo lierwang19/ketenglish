@@ -22,6 +22,9 @@ import {
   getAllWords,
   getAllWeeks,
   upsertWeek,
+  renameWeek,
+  clearWeekWords,
+  deleteWeek,
   addWords,
   exportAllData,
   importAllData,
@@ -81,26 +84,58 @@ async function main() {
   const btnUpdate = document.getElementById('btnSwUpdate');
   const btnDismiss = document.getElementById('btnSwDismiss');
   btnUpdate?.addEventListener('click', () => {
-    navigator.serviceWorker?.controller?.postMessage({ type: 'SKIP_WAITING' });
-    location.reload();
+    // SKIP_WAITING 必须发给 waiting 的新 SW，不是 controller（controller 是旧的 active SW）
+    if (window._swWaiting) {
+      window._swWaiting.postMessage({ type: 'SKIP_WAITING' });
+    }
+    // 等新 SW 接管后再 reload，避免拿到旧缓存
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloaded) return;
+      reloaded = true;
+      location.reload();
+    });
+    // 兜底：1.5s 后无论如何都 reload 一次
+    setTimeout(() => { if (!reloaded) { reloaded = true; location.reload(); } }, 1500);
   });
   btnDismiss?.addEventListener('click', () => {
     document.getElementById('swUpdateBanner')?.classList.add('hidden');
   });
 }
 
+function showSwBanner(waitingWorker) {
+  window._swWaiting = waitingWorker;
+  document.getElementById('swUpdateBanner')?.classList.remove('hidden');
+}
+
 function registerSW() {
   if (!('serviceWorker' in navigator)) return;
 
+  // 新 SW 接管后自动 reload 一次，让页面立刻用上新代码（无感）
+  // 防抖：只 reload 一次
+  let _reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (_reloaded) return;
+    _reloaded = true;
+    location.reload();
+  });
+
   navigator.serviceWorker.register('/vocab-review/sw.js').then(reg => {
+    // 兜底：如果有 waiting 的 SW（理论上 sw.js 已 self.skipWaiting，不该发生），手动促一下
+    reg.waiting?.postMessage({ type: 'SKIP_WAITING' });
+
+    // 之后出现的更新：装好就让它跳过 waiting
     reg.addEventListener('updatefound', () => {
       const newWorker = reg.installing;
       newWorker?.addEventListener('statechange', () => {
         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-          document.getElementById('swUpdateBanner')?.classList.remove('hidden');
+          newWorker.postMessage({ type: 'SKIP_WAITING' });
         }
       });
     });
+
+    // 主动触发一次更新检查，避免浏览器懒检测
+    reg.update().catch(() => {});
   }).catch(err => {
     console.warn('[SW] 注册失败（非致命）:', err);
   });
@@ -365,14 +400,17 @@ async function renderWords(container) {
   try {
     const [words, weeks] = await Promise.all([getAllWords(), getAllWeeks()]);
     if (!words.length) {
+      const sortedEmpty = [...weeks].sort((a, b) => b.week_number - a.week_number);
       container.innerHTML = `
         <div class="empty-state">
           <div class="empty-state-title">单词本为空</div>
           <div class="empty-state-desc">先录入本周老师布置的基础词汇和拓展词汇。</div>
           <button class="btn btn-primary" id="btnGoImport">去录入</button>
         </div>
+        ${weeks.length ? renderWeeksAdminSection([], sortedEmpty) : ''}
       `;
       container.querySelector('#btnGoImport')?.addEventListener('click', () => window._router?.go('/import'));
+      if (weeks.length) bindWordsPage(container, [], sortedEmpty);
       return;
     }
 
@@ -395,11 +433,85 @@ async function renderWords(container) {
 
 function bindWordsPage(container, words, weeks) {
   container.querySelector('#btnGoImportInline')?.addEventListener('click', () => window._router?.go('/import'));
+  container.querySelector('#btnGoImportFromWeeks')?.addEventListener('click', () => window._router?.go('/import'));
   const weekFilter = container.querySelector('#weekFilter');
   weekFilter?.addEventListener('change', () => {
     const weekId = Number(weekFilter.value);
     container.innerHTML = renderWordsPage(words, weeks, weekId);
     bindWordsPage(container, words, weeks);
+  });
+
+  // 包装：执行期间禁用按钮，避免双击/重复提交
+  const withBusy = (btn, fn) => async (...args) => {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    try { await fn(...args); }
+    finally { btn.disabled = false; }
+  };
+
+  container.querySelectorAll('.js-week-rename').forEach(btn => {
+    btn.addEventListener('click', withBusy(btn, async () => {
+      const weekId = Number(btn.dataset.weekId);
+      const week = weeks.find(w => w.id === weekId);
+      if (!week) return;
+      const next = window.prompt(`重命名第 ${week.week_number} 周`, week.label);
+      if (next == null) return;
+      const trimmed = String(next).trim();
+      if (!trimmed) return showToast('名称不能为空', 'error');
+      try {
+        await renameWeek(weekId, trimmed);
+        showToast('已重命名');
+        renderWords(container);
+      } catch (err) {
+        showToast(`重命名失败：${err.message}`, 'error');
+      }
+    }));
+  });
+
+  container.querySelectorAll('.js-week-clear').forEach(btn => {
+    btn.addEventListener('click', withBusy(btn, async () => {
+      const weekId = Number(btn.dataset.weekId);
+      const week = weeks.find(w => w.id === weekId);
+      if (!week) return;
+      const count = words.filter(w => Number(w.week_id) === weekId).length;
+      const ok = await confirmDanger({
+        title: `清空"${week.label}"`,
+        message: `将删除该周下 ${count} 个单词，以及它们的学习进度和复习日志。\n周次本身会保留，可重新录入。\n此操作无法撤销。`,
+        requireText: '清空',
+        confirmLabel: '确认清空',
+      });
+      if (!ok) return;
+      try {
+        const { deleted } = await clearWeekWords(weekId);
+        showToast(`已清空 ${deleted} 个单词`);
+        renderWords(container);
+      } catch (err) {
+        showToast(`清空失败：${err.message}`, 'error');
+      }
+    }));
+  });
+
+  container.querySelectorAll('.js-week-delete').forEach(btn => {
+    btn.addEventListener('click', withBusy(btn, async () => {
+      const weekId = Number(btn.dataset.weekId);
+      const week = weeks.find(w => w.id === weekId);
+      if (!week) return;
+      const count = words.filter(w => Number(w.week_id) === weekId).length;
+      const ok = await confirmDanger({
+        title: `删除"${week.label}"`,
+        message: `将一并删除该周次本身、其下 ${count} 个单词，以及全部学习进度和复习日志。\n此操作无法撤销。`,
+        requireText: '删除',
+        confirmLabel: '确认删除',
+      });
+      if (!ok) return;
+      try {
+        await deleteWeek(weekId);
+        showToast('周次已删除');
+        renderWords(container);
+      } catch (err) {
+        showToast(`删除失败：${err.message}`, 'error');
+      }
+    }));
   });
 }
 
@@ -428,6 +540,57 @@ function renderWordsPage(words, weeks, selectedWeekId) {
 
     ${renderWordTableSection('基础词汇', 'spelling', basicWords, '中文写英文 + 英文写中文的高优先池')}
     ${renderWordTableSection('拓展词汇', 'recognition', extendedWords, '识记型词汇，系统维持低频抽查与回炉')}
+    ${renderWeeksAdminSection(words, weeks)}
+  `;
+}
+
+function renderWeeksAdminSection(words, weeks) {
+  const countByWeek = new Map();
+  for (const w of words) {
+    countByWeek.set(Number(w.week_id), (countByWeek.get(Number(w.week_id)) || 0) + 1);
+  }
+  const sorted = [...weeks].sort((a, b) => b.week_number - a.week_number);
+
+  return `
+    <section class="panel">
+      <div class="section-head">
+        <div>
+          <div class="section-kicker">周次维护</div>
+          <h3>周次管理</h3>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btnGoImportFromWeeks">添加新周次</button>
+      </div>
+      <p class="section-desc">在这里可以重命名、清空或删除某一周。清空和删除会同时移除该周的学习进度和复习日志，无法撤销。</p>
+      ${sorted.length ? `
+      <div class="table-shell">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>周次</th>
+              <th>名称</th>
+              <th>词数</th>
+              <th>添加日期</th>
+              <th style="width: 280px;">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sorted.map(week => `
+              <tr data-week-id="${week.id}">
+                <td>第 ${week.week_number} 周</td>
+                <td>${esc(week.label)}</td>
+                <td>${countByWeek.get(Number(week.id)) || 0}</td>
+                <td>${esc(formatDateTime(week.created_at))}</td>
+                <td>
+                  <button class="btn btn-ghost btn-sm js-week-rename" data-week-id="${week.id}">重命名</button>
+                  <button class="btn btn-ghost btn-sm js-week-clear" data-week-id="${week.id}">清空</button>
+                  <button class="btn btn-ghost btn-sm js-week-delete" data-week-id="${week.id}">删除</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>` : renderEmptyInline('还没有任何周次')}
+    </section>
   `;
 }
 
@@ -488,9 +651,11 @@ async function renderImport(container) {
       <div class="section-head">
         <div>
           <div class="section-kicker">周录入入口</div>
-          <h3>周次管理</h3>
+          <h3>快速添加周次</h3>
         </div>
+        <button class="btn btn-ghost btn-sm" id="btnGoManageWeeks">管理已有周次</button>
       </div>
+      <p class="section-desc">先建一个周次，下面的导入和录入才能写到对应周。重命名/清空/删除请到"单词本 → 周次管理"。</p>
       <div class="inline-form">
         <input type="number" class="form-input" id="newWeekNum" placeholder="周次编号" min="1" />
         <input type="text" class="form-input" id="newWeekLabel" placeholder="如：第1周（Day1-Home and Colours）" />
@@ -652,6 +817,8 @@ function bindImportEvents(container) {
     const files = Array.from(event.clipboardData?.files || []);
     return files.find(file => String(file.type || '').startsWith('image/')) || null;
   };
+
+  container.querySelector('#btnGoManageWeeks')?.addEventListener('click', () => window._router?.go('/words'));
 
   container.querySelector('#btnAddWeek')?.addEventListener('click', async () => {
     const num = parseInt(container.querySelector('#newWeekNum')?.value, 10);
@@ -2217,6 +2384,59 @@ export function showToast(message, type = 'default', duration = 2400) {
     toast.style.opacity = '0';
     setTimeout(() => toast.remove(), 280);
   }, duration);
+}
+
+/**
+ * 危险操作确认弹窗：要求用户输入指定文本才能确认
+ * @param {{ title: string, message: string, requireText: string, confirmLabel?: string }} opts
+ * @returns {Promise<boolean>}
+ */
+export function confirmDanger({ title, message, requireText, confirmLabel = '确认' }) {
+  return new Promise((resolve) => {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'danger-modal-backdrop';
+    backdrop.innerHTML = `
+      <div class="danger-modal" role="dialog" aria-modal="true">
+        <div class="danger-modal-title">${esc(title)}</div>
+        <div class="danger-modal-message">${esc(message)}</div>
+        <div class="danger-modal-hint">请输入 <code>${esc(requireText)}</code> 以确认：</div>
+        <input type="text" class="danger-modal-input" autocomplete="off" />
+        <div class="danger-modal-actions">
+          <button type="button" class="btn btn-ghost btn-sm js-cancel">取消</button>
+          <button type="button" class="btn btn-danger btn-sm js-confirm" disabled>${esc(confirmLabel)}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(backdrop);
+
+    const input = backdrop.querySelector('.danger-modal-input');
+    const btnOk = backdrop.querySelector('.js-confirm');
+    const btnCancel = backdrop.querySelector('.js-cancel');
+
+    const cleanup = (result) => {
+      document.removeEventListener('keydown', onKey);
+      backdrop.remove();
+      resolve(result);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') cleanup(false);
+      if (e.key === 'Enter' && input.value.trim() === requireText) cleanup(true);
+    };
+
+    input.addEventListener('input', () => {
+      btnOk.disabled = input.value.trim() !== requireText;
+    });
+    btnOk.addEventListener('click', () => {
+      if (input.value.trim() === requireText) cleanup(true);
+    });
+    btnCancel.addEventListener('click', () => cleanup(false));
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) cleanup(false);
+    });
+    document.addEventListener('keydown', onKey);
+
+    setTimeout(() => input.focus(), 30);
+  });
 }
 
 function showFatalError(msg) {

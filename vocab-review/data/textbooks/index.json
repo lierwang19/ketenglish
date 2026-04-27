@@ -6,8 +6,8 @@
       "title": "KET 核心词汇（Day 制版）",
       "subtitle": "按 Day 切分的家长版词表，适配每日复习节奏",
       "license": "free",
-      "days_count": 30,
-      "days_available": 1,
+      "days_count": 14,
+      "days_available": 14,
       "file": "ket-core-day.json",
       "credit": "基于公开 KET 词汇大纲整理"
     }
