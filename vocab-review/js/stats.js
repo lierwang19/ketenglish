@@ -99,7 +99,7 @@ export async function initStats(container) {
       </section>
     `;
   } catch (err) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-state-title">统计加载失败</div><div class="empty-state-desc">${esc(err.message)}</div></div>`;
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-title">复盘加载失败</div><div class="empty-state-desc">${esc(err.message)}</div></div>`;
   }
 }
 

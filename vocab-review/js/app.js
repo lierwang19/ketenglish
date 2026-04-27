@@ -3,7 +3,7 @@
  *
  * 新版词汇复习系统入口：
  * - 首页：围绕任务单状态和周录入概览
- * - 单词本：按周次筛选，基础词汇 / 拓展词汇双表
+ * - 词库：按周次筛选，基础词汇 / 拓展词汇双表
  * - 今日任务单：生成、预览、导出打印
  * - 批改：上传、复核、完成状态流
  * - 统计：家庭复习概览
@@ -151,11 +151,16 @@ const PAGE_MAP = {
   settings: 'pageSettings',
 };
 
+// 4 个一级 tab：/ /words /stats /settings
+// 隐藏路由 (tasks/grading/import) 高亮归属父 tab：
+//   tasks/grading 属于"今日"流（出题→批改→回炉），高亮 /
+//   import 属于"词库"流（录入新词），高亮 /words
 const NAV_ROUTE_MAP = {
   home: '/',
-  tasks: '/tasks',
+  tasks: '/',
+  grading: '/',
   words: '/words',
-  grading: '/grading',
+  import: '/words',
   stats: '/stats',
   settings: '/settings',
 };
@@ -191,7 +196,7 @@ function updateNavActive(pageName) {
 }
 
 async function renderHome(container) {
-  setHeaderTitle('单词复习总览');
+  setHeaderTitle('今日');
   setBackBtn(false);
   container.innerHTML = renderLoading();
 
@@ -239,7 +244,8 @@ async function renderHome(container) {
         </div>
         <div class="hero-actions">
           <button class="btn btn-primary" id="btnOpenTask">查看今日任务单</button>
-          <button class="btn btn-secondary" id="btnOpenImport">录入本周单词</button>
+          <button class="btn btn-secondary" id="btnOpenGrading">上传答卷批改</button>
+          <button class="btn btn-ghost" id="btnOpenImport">录入本周单词</button>
         </div>
       </section>
 
@@ -293,7 +299,7 @@ async function renderHome(container) {
         <div class="quick-grid">
           ${quickActionButton('任务单预览', '查看、导出、打印今日 PDF', 'tasks')}
           ${quickActionButton('上传与批改', '记录照片上传、复核和完成状态', 'grading')}
-          ${quickActionButton('单词本', '按录入周数筛选基础词汇 / 拓展词汇', 'words')}
+          ${quickActionButton('词库', '按录入周数筛选基础词汇 / 拓展词汇', 'words')}
           ${quickActionButton('录入单词', '本周老师词表导入与分类', 'import')}
         </div>
       </section>
@@ -318,6 +324,7 @@ async function renderHome(container) {
     `;
 
     container.querySelector('#btnOpenTask')?.addEventListener('click', () => window._router?.go('/tasks'));
+    container.querySelector('#btnOpenGrading')?.addEventListener('click', () => window._router?.go('/grading'));
     container.querySelector('#btnOpenImport')?.addEventListener('click', () => window._router?.go('/import'));
     container.querySelectorAll('[data-quick-route]').forEach(btn => {
       btn.addEventListener('click', () => window._router?.go(`/${btn.dataset.quickRoute}`));
@@ -339,7 +346,7 @@ async function renderTasks(container) {
       container.innerHTML = `
         <div class="empty-state">
           <div class="empty-state-title">还没有单词，无法生成任务单</div>
-          <div class="empty-state-desc">先去单词本录入本周老师布置的基础词汇和拓展词汇，再回来生成今日任务单。</div>
+          <div class="empty-state-desc">先去词库录入本周老师布置的基础词汇和拓展词汇，再回来生成今日任务单。</div>
           <button class="btn btn-primary" id="btnGoImport">去录入单词</button>
         </div>
       `;
@@ -393,7 +400,7 @@ async function renderTasks(container) {
 }
 
 async function renderWords(container) {
-  setHeaderTitle('单词本');
+  setHeaderTitle('词库');
   setBackBtn(false);
   container.innerHTML = renderLoading();
 
@@ -403,7 +410,7 @@ async function renderWords(container) {
       const sortedEmpty = [...weeks].sort((a, b) => b.week_number - a.week_number);
       container.innerHTML = `
         <div class="empty-state">
-          <div class="empty-state-title">单词本为空</div>
+          <div class="empty-state-title">词库为空</div>
           <div class="empty-state-desc">先录入本周老师布置的基础词汇和拓展词汇。</div>
           <button class="btn btn-primary" id="btnGoImport">去录入</button>
         </div>
@@ -655,7 +662,7 @@ async function renderImport(container) {
         </div>
         <button class="btn btn-ghost btn-sm" id="btnGoManageWeeks">管理已有周次</button>
       </div>
-      <p class="section-desc">先建一个周次，下面的导入和录入才能写到对应周。重命名/清空/删除请到"单词本 → 周次管理"。</p>
+      <p class="section-desc">先建一个周次，下面的导入和录入才能写到对应周。重命名/清空/删除请到"词库 → 周次管理"。</p>
       <div class="inline-form">
         <input type="number" class="form-input" id="newWeekNum" placeholder="周次编号" min="1" />
         <input type="text" class="form-input" id="newWeekLabel" placeholder="如：第1周（Day1-Home and Colours）" />
@@ -1637,7 +1644,7 @@ async function renderGrading(container) {
       container.innerHTML = `
         <div class="empty-state">
           <div class="empty-state-title">还没有单词，无法批改</div>
-          <div class="empty-state-desc">单词本为空，今日任务单也无法生成。先去录入本周单词。</div>
+          <div class="empty-state-desc">词库为空，今日任务单也无法生成。先去录入本周单词。</div>
           <button class="btn btn-primary" id="btnGoImport">去录入单词</button>
         </div>
       `;
@@ -1960,7 +1967,7 @@ async function renderGrading(container) {
 }
 
 async function renderStatsPage(container) {
-  setHeaderTitle('复习统计');
+  setHeaderTitle('复盘');
   setBackBtn(false);
   await initStats(container);
 }
